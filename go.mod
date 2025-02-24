@@ -1,12 +1,13 @@
-module github.com/harshabose/simple_webrtc_comm/peerconnection
+module github.com/harshabose/simple_webrtc_comm/client
 
-go 1.23
-
-require github.com/pion/webrtc/v4 v4.0.10
+go 1.23.3
 
 require (
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/harshabose/simple_webrtc_comm/datachannel v0.0.0 // indirect
+	github.com/harshabose/simple_webrtc_comm/datachannel v0.0.0
+	github.com/harshabose/simple_webrtc_comm/transcode v0.0.0
+	github.com/harshabose/tools/buffer v0.0.0
+	github.com/harshabose/simple_webrtc_comm/mediasource v0.0.0
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v3 v3.0.4 // indirect
 	github.com/pion/ice/v4 v4.0.6 // indirect
@@ -22,10 +23,16 @@ require (
 	github.com/pion/stun/v3 v3.0.0 // indirect
 	github.com/pion/transport/v3 v3.0.7 // indirect
 	github.com/pion/turn/v4 v4.0.0 // indirect
+	github.com/pion/webrtc/v4 v4.0.10
 	github.com/wlynxg/anet v0.0.5 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 )
 
-replace github.com/harshabose/simple_webrtc_comm/datachannel => ../datachannel
+replace (
+	github.com/harshabose/simple_webrtc_comm/datachannel => ../datachannel
+	github.com/harshabose/tools/buffer => ../tools/buffer
+	github.com/harshabose/simple_webrtc_comm/transcode => ../transcode
+	github.com/harshabose/simple_webrtc_comm/mediasource => ../mediasource
+)
