@@ -1,0 +1,40 @@
+package client
+
+import (
+	"context"
+
+	"github.com/pion/webrtc/v4"
+
+	"github.com/harshabose/simple_webrtc_comm/client/internal/signal"
+)
+
+type PeerConnection struct {
+	peerConnection *webrtc.PeerConnection
+	config         webrtc.Configuration
+	signal         signal.BaseSignal
+	ctx            context.Context
+}
+
+func CreatePeerConnection(ctx context.Context, api *webrtc.API, options ...PeerConnectionOption) (*PeerConnection, error) {
+	var err error
+	pc := &PeerConnection{ctx: ctx}
+
+	for _, option := range options {
+		if err := option(pc); err != nil {
+			return nil, err
+		}
+	}
+
+	if pc.peerConnection, err = api.NewPeerConnection(pc.config); err != nil {
+		return nil, err
+	}
+	return pc, err
+}
+
+func (pc *PeerConnection) setup() {
+
+}
+
+func (pc *PeerConnection) connect() error {
+	return nil
+}
