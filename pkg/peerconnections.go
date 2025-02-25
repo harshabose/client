@@ -80,8 +80,13 @@ func (pc *PeerConnections) GetMediaSink(label string) (*mediasink.Sink, error) {
 	return pc.sinks.GetSink(label)
 }
 
-func (pc *PeerConnections) Connect(peerConnection *PeerConnection, events ...Event) error {
-	return nil
+func (pc *PeerConnections) Connect(category, peerConnectionLabel string, events ...Event) error {
+	// TODO: SETUP EVENTS
+	peerConnection, err := pc.GetPeerConnection(peerConnectionLabel)
+	if err != nil {
+		return err
+	}
+	return peerConnection.signal.Connect(category, peerConnectionLabel)
 }
 
 func (pc *PeerConnections) WaitUntilClosed() {

@@ -30,11 +30,3 @@ func CreatePeerConnection(ctx context.Context, api *webrtc.API, options ...PeerC
 	}
 	return pc, err
 }
-
-func (pc *PeerConnection) setup() {
-
-}
-
-func (pc *PeerConnection) connect() error {
-	return nil
-}

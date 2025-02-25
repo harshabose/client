@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/asticode/go-astiav"
@@ -52,7 +53,9 @@ func main() {
 		panic(err)
 	}
 
-	if err := deliveryDrone.CreateDataChannel("MAVLINK", peerConnection, data.WithBindPort, data.WithMAVP2P); err != nil {
+	if err := deliveryDrone.CreateDataChannel("MAVLINK", peerConnection,
+		data.WithRandomBindPort, data.WithMAVP2P(os.Getenv("MAVP2P_EXE_PATH"), os.Getenv("MAVLINK_SERIAL")),
+	); err != nil {
 		panic(err)
 	}
 
@@ -61,7 +64,7 @@ func main() {
 		mediasource.WithPriority(mediasource.Level5),
 		mediasource.WithStream(
 			mediasource.WithDemuxer(
-				"rtsp://INSERT-IP:8554/main.264",
+				"rtsp://192.168.144.25:8554/main.264",
 				transcode.WithRTSPInputOption,
 				transcode.WithDemuxerBufferSize(int(constants.DefaultVideoFPS)*3),
 			),
@@ -83,7 +86,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := deliveryDrone.Connect(peerConnection); err != nil {
+	if err := deliveryDrone.Connect("DELIVERY", "MAIN"); err != nil {
 		panic(err)
 	}
 	deliveryDrone.WaitUntilClosed()
