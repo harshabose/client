@@ -61,10 +61,6 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 		}
 	}
 
-	return signal.offer()
-}
-
-func (signal *OfferSignal) offer() error {
 	offer, err := signal.peerConnection.CreateOffer(nil)
 	if err != nil {
 		return fmt.Errorf("error while creating offer: %w", err)
@@ -84,6 +80,11 @@ func (signal *OfferSignal) offer() error {
 	}, firestore.MergeAll); err != nil {
 		return fmt.Errorf("error while setting data to firestore: %w", err)
 	}
+
+	return signal.offer()
+}
+
+func (signal *OfferSignal) offer() error {
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
