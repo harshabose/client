@@ -47,6 +47,12 @@ func main() {
 		panic(err)
 	}
 
+	// if err := groundstation.CreateMediaSink("A8-MINI",
+	// 	mediasink.WithUDPHost(4002),
+	// ); err != nil {
+	// 	panic(err)
+	// }
+	//
 	if err := groundstation.Connect("DELIVERY", "MAIN"); err != nil {
 		panic(err)
 	}
