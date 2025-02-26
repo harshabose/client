@@ -1,3 +1,3 @@
 package client
 
-type Event = func(*PeerConnection) error
+type Event = func(*PeerConnections) error

@@ -20,6 +20,10 @@ github.com/asticode/go-astiav v0.33.1 h1:fll7jDP1LCosVTpqJNze0z0TAokuyFj+Jjls+g1
 github.com/asticode/go-astiav v0.33.1/go.mod h1:K7D8UC6GeQt85FUxk2KVwYxHnotrxuEnp5evkkudc2s=
 github.com/asticode/go-astikit v0.52.0 h1:kTl2XjgiVQhUl1H7kim7NhmTtCMwVBbPrXKqhQhbk8Y=
 github.com/asticode/go-astikit v0.52.0/go.mod h1:fV43j20UZYfXzP9oBn33udkvCvDvCDhzjVqoLFuuYZE=
+github.com/bluenviron/gortsplib/v4 v4.12.3 h1:3EzbyGb5+MIOJQYiWytRegFEP4EW5paiyTrscQj63WE=
+github.com/bluenviron/gortsplib/v4 v4.12.3/go.mod h1:SkZPdaMNr+IvHt2PKRjUXxZN6FDutmSZn4eT0GmF0sk=
+github.com/bluenviron/mediacommon v1.14.0 h1:lWCwOBKNKgqmspRpwpvvg3CidYm+XOc2+z/Jw7LM5dQ=
+github.com/bluenviron/mediacommon v1.14.0/go.mod h1:z5LP9Tm1ZNfQV5Co54PyOzaIhGMusDfRKmh42nQSnyo=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=

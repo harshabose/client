@@ -1,16 +1,18 @@
 package signal
 
 import (
-	"cloud.google.com/go/firestore"
 	"context"
-	"firebase.google.com/go"
 	"fmt"
-	"github.com/harshabose/simple_webrtc_comm/client/internal/config"
+	"time"
+
+	"cloud.google.com/go/firestore"
+	"firebase.google.com/go"
 	"github.com/pion/webrtc/v4"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"time"
+
+	"github.com/harshabose/simple_webrtc_comm/client/internal/config"
 )
 
 type OfferSignal struct {
@@ -51,7 +53,8 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 	signal.docRef = signal.client.Collection(category).Doc(connectionLabel)
 	_, err := signal.docRef.Get(signal.ctx)
 
-	if err != nil || status.Code(err) != codes.NotFound {
+	if err != nil && status.Code(err) != codes.NotFound {
+		fmt.Println(status.Code(err))
 		return err
 	}
 
@@ -80,6 +83,8 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 	}, firestore.MergeAll); err != nil {
 		return fmt.Errorf("error while setting data to firestore: %w", err)
 	}
+
+	fmt.Println("Offer updated in firestore. Waiting for peer connection...")
 
 	return signal.offer()
 }
@@ -113,6 +118,7 @@ loop:
 				Type: webrtc.SDPTypeAnswer,
 				SDP:  sdp,
 			}); err != nil {
+				fmt.Printf("error while setting remote description: %s", err.Error())
 				continue loop
 			}
 

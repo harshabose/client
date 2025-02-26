@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/asticode/go-astiav"
@@ -40,21 +39,18 @@ func main() {
 		panic(err)
 	}
 
-	if err := deliveryDrone.CreatePeerConnection(
+	peerConnection, err := deliveryDrone.CreatePeerConnection(
 		"MAIN",
 		client.WithRTCConfiguration(config.GetRTCConfiguration()),
 		client.WithOfferSignal,
-	); err != nil {
-		panic(err)
-	}
-
-	peerConnection, err := deliveryDrone.GetPeerConnection("MAIN")
+	)
 	if err != nil {
 		panic(err)
 	}
 
 	if err := deliveryDrone.CreateDataChannel("MAVLINK", peerConnection,
-		data.WithRandomBindPort, data.WithMAVP2P(os.Getenv("MAVP2P_EXE_PATH"), os.Getenv("MAVLINK_SERIAL")),
+		data.WithRandomBindPort,
+		// data.WithMAVP2P(os.Getenv("MAVP2P_EXE_PATH"), os.Getenv("MAVLINK_SERIAL")),
 	); err != nil {
 		panic(err)
 	}
@@ -63,9 +59,11 @@ func main() {
 		mediasource.WithH264Track(constants.DefaultVideoClockRate, "A8-MINI"),
 		mediasource.WithPriority(mediasource.Level5),
 		mediasource.WithStream(
+			// mediasource.WithBufferSize(int(constants.DefaultVideoFPS*3)),
 			mediasource.WithDemuxer(
-				"rtsp://192.168.144.25:8554/main.264",
-				transcode.WithRTSPInputOption,
+				"/dev/video0",
+				// "rtsp://192.168.144.25:8554/main.264",
+				// transcode.WithRTSPInputOption,
 				transcode.WithDemuxerBufferSize(int(constants.DefaultVideoFPS)*3),
 			),
 			mediasource.WithDecoder(transcode.WithDecoderBufferSize(int(constants.DefaultVideoFPS)*3)),

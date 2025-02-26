@@ -19,14 +19,15 @@ func CreatePeerConnection(ctx context.Context, api *webrtc.API, options ...PeerC
 	var err error
 	pc := &PeerConnection{ctx: ctx}
 
+	if pc.peerConnection, err = api.NewPeerConnection(pc.config); err != nil {
+		return nil, err
+	}
+
 	for _, option := range options {
 		if err := option(pc); err != nil {
 			return nil, err
 		}
 	}
 
-	if pc.peerConnection, err = api.NewPeerConnection(pc.config); err != nil {
-		return nil, err
-	}
 	return pc, err
 }

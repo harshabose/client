@@ -10,6 +10,7 @@ import (
 	"github.com/pion/webrtc/v4"
 
 	"github.com/harshabose/simple_webrtc_comm/client/internal/config"
+	"github.com/harshabose/simple_webrtc_comm/client/internal/constants"
 	"github.com/harshabose/simple_webrtc_comm/client/pkg"
 )
 
@@ -21,21 +22,17 @@ func main() {
 	groundstation, err := client.CreatePeerConnections(
 		ctx, mediaEngine, interceptorRegistry,
 		client.WithDataChannels(),
-		client.WithMediaSinks(),
+		client.WithMediaSinks(mediasink.WithH264MediaEngine(constants.DefaultVideoClockRate, mediasink.PacketisationMode1, mediasink.ProfileLevelBaseline42)),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	if err := groundstation.CreatePeerConnection(
+	peerConnection, err := groundstation.CreatePeerConnection(
 		"MAIN",
 		client.WithRTCConfiguration(config.GetRTCConfiguration()),
-		client.WithOfferSignal,
-	); err != nil {
-		panic(err)
-	}
-
-	peerConnection, err := groundstation.GetPeerConnection("MAIN")
+		client.WithAnswerSignal,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -53,5 +50,6 @@ func main() {
 	if err := groundstation.Connect("DELIVERY", "MAIN"); err != nil {
 		panic(err)
 	}
+
 	groundstation.WaitUntilClosed()
 }

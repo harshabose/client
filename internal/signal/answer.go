@@ -1,15 +1,17 @@
 package signal
 
 import (
-	"cloud.google.com/go/firestore"
 	"context"
-	firebase "firebase.google.com/go"
 	"fmt"
-	"github.com/harshabose/simple_webrtc_comm/client/internal/config"
+	"time"
+
+	"cloud.google.com/go/firestore"
+	firebase "firebase.google.com/go"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"time"
+
+	"github.com/harshabose/simple_webrtc_comm/client/internal/config"
 
 	"github.com/pion/webrtc/v4"
 )
@@ -54,6 +56,7 @@ func (signal *AnswerSignal) Connect(category, connectionLabel string) error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	var data map[string]interface{}
 loop:
 	for {
 		select {
@@ -64,18 +67,18 @@ loop:
 					continue loop
 				}
 			}
-			data := snapshot.Data()
+			data = snapshot.Data()[FieldOffer].(map[string]interface{})
+
 			if currentStatus, exists := data[FieldStatus]; !exists || currentStatus != FieldStatusPending {
 				continue loop
 			}
-			if err := signal.answer(data); err != nil {
-				continue
-			}
+
 			break loop
 		}
 	}
+	fmt.Println("Found Offer. Creating answer...")
 
-	return nil
+	return signal.answer(data)
 }
 
 func (signal *AnswerSignal) answer(offer map[string]interface{}) error {

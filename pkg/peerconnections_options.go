@@ -20,11 +20,11 @@ func WithMediaSources(options ...mediasource.TracksOption) PeerConnectionsOption
 	}
 }
 
-func WithMediaSinks() PeerConnectionsOption {
+func WithMediaSinks(options ...mediasink.SinksOptions) PeerConnectionsOption {
 	return func(pc *PeerConnections) error {
 		var err error
 
-		if pc.sinks, err = mediasink.CreateSinks(pc.ctx); err != nil {
+		if pc.sinks, err = mediasink.CreateSinks(pc.ctx, pc.mediaEngine, pc.interceptorRegistry, options...); err != nil {
 			return err
 		}
 

@@ -24,6 +24,8 @@ require (
 	cloud.google.com/go/storage v1.43.0 // indirect
 	github.com/asticode/go-astiav v0.33.1 // indirect
 	github.com/asticode/go-astikit v0.52.0 // indirect
+	github.com/bluenviron/gortsplib/v4 v4.12.3 // indirect
+	github.com/bluenviron/mediacommon v1.14.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

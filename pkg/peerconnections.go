@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
 	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
@@ -42,18 +43,32 @@ func CreatePeerConnections(ctx context.Context, mediaEngine *webrtc.MediaEngine,
 	return peerConnections, nil
 }
 
-func (pc *PeerConnections) CreatePeerConnection(label string, options ...PeerConnectionOption) error {
+func (pc *PeerConnections) CreatePeerConnection(label string, options ...PeerConnectionOption) (*PeerConnection, error) {
 	var err error
 
 	if _, exists := pc.peerConnections[label]; exists {
-		return errors.New("peer connection already exists")
+		return nil, errors.New("peer connection already exists")
 	}
 
 	if pc.peerConnections[label], err = CreatePeerConnection(pc.ctx, pc.api, options...); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	pc.peerConnections[label].peerConnection.OnTrack(func(remote *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		sink, err := pc.sinks.GetSink(remote.ID())
+		if err != nil {
+			fmt.Printf("sink not set for track with ID: %s\n", remote.ID())
+		}
+
+		sink.SetTrack(remote)
+		sink.Start()
+	})
+
+	pc.peerConnections[label].peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		fmt.Printf("peer connection state with label '%s' changed to %s\n", label, state.String())
+	})
+
+	return pc.peerConnections[label], nil
 }
 
 func (pc *PeerConnections) GetPeerConnection(label string) (*PeerConnection, error) {
@@ -76,17 +91,28 @@ func (pc *PeerConnections) CreateMediaSink(label string, options ...mediasink.St
 	return pc.sinks.CreateSink(label, options...)
 }
 
+func (pc *PeerConnections) GetMediaSource(label string) (*mediasource.Track, error) {
+	return pc.tracks.GetTrack(label)
+}
+
 func (pc *PeerConnections) GetMediaSink(label string) (*mediasink.Sink, error) {
 	return pc.sinks.GetSink(label)
 }
 
-func (pc *PeerConnections) Connect(category, peerConnectionLabel string, events ...Event) error {
-	// TODO: SETUP EVENTS
+func (pc *PeerConnections) Connect(category, peerConnectionLabel string) error {
 	peerConnection, err := pc.GetPeerConnection(peerConnectionLabel)
 	if err != nil {
 		return err
 	}
-	return peerConnection.signal.Connect(category, peerConnectionLabel)
+
+	if err := peerConnection.signal.Connect(category, peerConnectionLabel); err != nil {
+		return err
+	}
+	if pc.tracks != nil {
+		pc.tracks.StartAll()
+	}
+
+	return nil
 }
 
 func (pc *PeerConnections) WaitUntilClosed() {
