@@ -39,7 +39,7 @@ func main() {
 		panic(err)
 	}
 
-	peerConnection, err := deliveryDrone.CreatePeerConnection(
+	_, err = deliveryDrone.CreatePeerConnection(
 		"MAIN",
 		client.WithRTCConfiguration(config.GetRTCConfiguration()),
 		client.WithOfferSignal,
@@ -48,14 +48,14 @@ func main() {
 		panic(err)
 	}
 
-	if err := deliveryDrone.CreateDataChannel("MAVLINK", peerConnection,
+	if err := deliveryDrone.CreateDataChannel("MAVLINK", "MAIN",
 		data.WithRandomBindPort,
 		// data.WithMAVP2P(os.Getenv("MAVP2P_EXE_PATH"), os.Getenv("MAVLINK_SERIAL")),
 	); err != nil {
 		panic(err)
 	}
 
-	if err := deliveryDrone.CreateMediaSource(peerConnection,
+	if err := deliveryDrone.CreateMediaSource("MAIN",
 		mediasource.WithH264Track(constants.DefaultVideoClockRate, "A8-MINI"),
 		mediasource.WithPriority(mediasource.Level5),
 		mediasource.WithStream(

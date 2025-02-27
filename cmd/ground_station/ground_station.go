@@ -28,7 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	peerConnection, err := groundstation.CreatePeerConnection(
+	_, err = groundstation.CreatePeerConnection(
 		"MAIN",
 		client.WithRTCConfiguration(config.GetRTCConfiguration()),
 		client.WithAnswerSignal,
@@ -37,22 +37,16 @@ func main() {
 		panic(err)
 	}
 
-	if err := groundstation.CreateDataChannel("MAVLINK", peerConnection, data.WithRandomBindPort, data.WithLoopBackPort(14550)); err != nil {
+	if err := groundstation.CreateDataChannel("MAVLINK", "MAIN", data.WithRandomBindPort, data.WithLoopBackPort(14550)); err != nil {
 		panic(err)
 	}
 
-	if err := groundstation.CreateMediaSink("A8-MINI",
+	if err := groundstation.CreateMediaSink("A8-MINI", "MAIN",
 		mediasink.WithRTSPHost(8554, "A8-MINI", rtsp.WithH264Options(rtsp.PacketisationMode1, nil, nil)),
 	); err != nil {
 		panic(err)
 	}
 
-	// if err := groundstation.CreateMediaSink("A8-MINI",
-	// 	mediasink.WithUDPHost(4002),
-	// ); err != nil {
-	// 	panic(err)
-	// }
-	//
 	if err := groundstation.Connect("DELIVERY", "MAIN"); err != nil {
 		panic(err)
 	}

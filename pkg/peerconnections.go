@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
 	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
@@ -54,20 +53,6 @@ func (pc *PeerConnections) CreatePeerConnection(label string, options ...PeerCon
 		return nil, err
 	}
 
-	pc.peerConnections[label].peerConnection.OnTrack(func(remote *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		sink, err := pc.sinks.GetSink(remote.ID())
-		if err != nil {
-			fmt.Printf("sink not set for track with ID: %s\n", remote.ID())
-		}
-
-		sink.SetTrack(remote)
-		sink.Start()
-	})
-
-	pc.peerConnections[label].peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		fmt.Printf("peer connection state with label '%s' changed to %s\n", label, state.String())
-	})
-
 	return pc.peerConnections[label], nil
 }
 
@@ -78,17 +63,49 @@ func (pc *PeerConnections) GetPeerConnection(label string) (*PeerConnection, err
 	return pc.peerConnections[label], nil
 }
 
-func (pc *PeerConnections) CreateDataChannel(label string, peerConnection *PeerConnection, options ...data.LoopBackOption) error {
+func (pc *PeerConnections) CreateDataChannel(label string, peerConnectionLabel string, options ...data.LoopBackOption) error {
+	peerConnection, err := pc.GetPeerConnection(peerConnectionLabel)
+	if err != nil {
+		return err
+	}
 	return pc.dataChannels.CreateDataChannel(label, peerConnection.peerConnection, options...)
 }
 
-func (pc *PeerConnections) CreateMediaSource(peerConnection *PeerConnection, options ...mediasource.TrackOption) error {
-	return pc.tracks.CreateTrack(peerConnection.peerConnection, options...)
+func (pc *PeerConnections) CreateMediaSource(peerConnectionLabel string, options ...mediasource.TrackOption) error {
+	peerConnection, err := pc.GetPeerConnection(peerConnectionLabel)
+	if err != nil {
+		return err
+	}
+	track, err := pc.tracks.CreateTrack(peerConnection.peerConnection, options...)
+	if err != nil {
+		return err
+	}
+	if _, exists := peerConnection.allocatedTracks[track.GetTrack().ID()]; exists {
+		return errors.New("track with same name allocated to the peer connection")
+	}
+	peerConnection.allocatedTracks[track.GetTrack().ID()] = track
+
+	return nil
 }
 
 // CreateMediaSink needs to have the label same as the remote track id (case-sensitive)
-func (pc *PeerConnections) CreateMediaSink(label string, options ...mediasink.StreamOption) error {
-	return pc.sinks.CreateSink(label, options...)
+func (pc *PeerConnections) CreateMediaSink(label string, peerConnectionLabel string, options ...mediasink.StreamOption) error {
+	peerConnection, err := pc.GetPeerConnection(peerConnectionLabel)
+	if err != nil {
+		return err
+	}
+
+	sink, err := pc.sinks.CreateSink(label, options...)
+	if err != nil {
+		return err
+	}
+
+	if _, exists := peerConnection.allocatedSinks[label]; exists {
+		return errors.New("sink with same name allocated to the peer connection")
+	}
+	peerConnection.allocatedSinks[label] = sink
+
+	return nil
 }
 
 func (pc *PeerConnections) GetMediaSource(label string) (*mediasource.Track, error) {

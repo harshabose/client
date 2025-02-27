@@ -18,17 +18,17 @@ import (
 type OfferSignal struct {
 	peerConnection *webrtc.PeerConnection
 	app            *firebase.App
-	client         *firestore.Client
+	firebaseClient *firestore.Client
 	docRef         *firestore.DocumentRef
 	ctx            context.Context
 }
 
 func CreateOfferSignal(ctx context.Context, peerConnection *webrtc.PeerConnection) *OfferSignal {
 	var (
-		configuration option.ClientOption
-		app           *firebase.App
-		client        *firestore.Client
-		err           error
+		configuration  option.ClientOption
+		app            *firebase.App
+		firebaseClient *firestore.Client
+		err            error
 	)
 
 	if configuration, err = config.GetFirebaseConfiguration(); err != nil {
@@ -37,20 +37,20 @@ func CreateOfferSignal(ctx context.Context, peerConnection *webrtc.PeerConnectio
 	if app, err = firebase.NewApp(ctx, nil, configuration); err != nil {
 		panic(err)
 	}
-	if client, err = app.Firestore(ctx); err != nil {
+	if firebaseClient, err = app.Firestore(ctx); err != nil {
 		panic(err)
 	}
 
 	return &OfferSignal{
 		app:            app,
-		client:         client,
+		firebaseClient: firebaseClient,
 		peerConnection: peerConnection,
 		ctx:            ctx,
 	}
 }
 
 func (signal *OfferSignal) Connect(category, connectionLabel string) error {
-	signal.docRef = signal.client.Collection(category).Doc(connectionLabel)
+	signal.docRef = signal.firebaseClient.Collection(category).Doc(connectionLabel)
 	_, err := signal.docRef.Get(signal.ctx)
 
 	if err != nil && status.Code(err) != codes.NotFound {
@@ -130,5 +130,5 @@ loop:
 }
 
 func (signal *OfferSignal) Close() error {
-	return signal.client.Close()
+	return signal.firebaseClient.Close()
 }
