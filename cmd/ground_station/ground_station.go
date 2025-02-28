@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
-	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
-	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg/rtsp"
 	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v4"
 
@@ -19,35 +17,41 @@ func main() {
 	mediaEngine := &webrtc.MediaEngine{}
 	interceptorRegistry := &interceptor.Registry{}
 
+	if err := webrtc.RegisterDefaultInterceptors(mediaEngine, interceptorRegistry); err != nil {
+		panic(err)
+	}
+
+	// enable needed client options/capabilities
 	groundstation, err := client.CreatePeerConnections(
 		ctx, mediaEngine, interceptorRegistry,
-		client.WithDataChannels(),
-		client.WithMediaSinks(mediasink.WithH264MediaEngine(constants.DefaultVideoClockRate, mediasink.PacketisationMode1, mediasink.ProfileLevelBaseline42)),
+		client.WithH264MediaEngine(constants.DefaultVideoClockRate, client.PacketisationMode1, client.ProfileLevelBaseline42),
+		client.WithNACKInterceptor(client.NACKGeneratorLowLatency, client.NACKResponderLowLatency),
+		client.WithFLEXFECInterceptor(),
+		// client.WithJitterBufferInterceptor(),
+		client.WithRTCPReportsInterceptor(client.RTCPReportIntervalLowLatency),
+		client.WithTWCCSenderInterceptor(client.TWCCIntervalLowLatency),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = groundstation.CreatePeerConnection(
+	// enable needed peer connection options/capabilities
+	mainPeerConnection, err := groundstation.CreatePeerConnection(
 		"MAIN",
 		client.WithRTCConfiguration(config.GetRTCConfiguration()),
 		client.WithAnswerSignal,
+		client.WithMediaSinks(),
+		client.WithDataChannels(),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	if err := groundstation.CreateDataChannel("MAVLINK", "MAIN", data.WithRandomBindPort, data.WithLoopBackPort(14550)); err != nil {
+	if err := mainPeerConnection.CreateDataChannel("MAVLINK", data.WithRandomBindPort, data.WithLoopBackPort(14550)); err != nil {
 		panic(err)
 	}
 
-	if err := groundstation.CreateMediaSink("A8-MINI", "MAIN",
-		mediasink.WithRTSPHost(8554, "A8-MINI", rtsp.WithH264Options(rtsp.PacketisationMode1, nil, nil)),
-	); err != nil {
-		panic(err)
-	}
-
-	if err := groundstation.Connect("DELIVERY", "MAIN"); err != nil {
+	if err := mainPeerConnection.Connect("DELIVERY"); err != nil {
 		panic(err)
 	}
 

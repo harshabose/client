@@ -75,11 +75,11 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 
 	if _, err = signal.docRef.Set(signal.ctx, map[string]interface{}{
 		FieldOffer: map[string]interface{}{
-			FieldStatus:    FieldStatusPending,
 			FieldCreatedAt: firestore.ServerTimestamp,
 			FieldSDP:       signal.peerConnection.LocalDescription().SDP,
 			FieldUpdatedAt: firestore.ServerTimestamp,
 		},
+		FieldStatus: FieldStatusPending,
 	}, firestore.MergeAll); err != nil {
 		return fmt.Errorf("error while setting data to firestore: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
+	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg/rtsp"
 	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
 	"github.com/pion/webrtc/v4"
 
@@ -15,27 +16,28 @@ import (
 )
 
 type PeerConnection struct {
-	peerConnection        *webrtc.PeerConnection
-	allocatedTracks       map[string]*mediasource.Track
-	allocatedSinks        map[string]*mediasink.Sink
-	allocatedDataChannels map[string]*data.DataChannel
-	config                webrtc.Configuration
-	signal                signal.BaseSignal
-	ctx                   context.Context
+	peerConnection *webrtc.PeerConnection
+	dataChannels   *data.DataChannels
+	tracks         *mediasource.Tracks
+	sinks          *mediasink.Sinks
+	config         webrtc.Configuration
+	signal         signal.BaseSignal
+	ctx            context.Context
 }
 
 func CreatePeerConnection(ctx context.Context, api *webrtc.API, options ...PeerConnectionOption) (*PeerConnection, error) {
 	var err error
 	pc := &PeerConnection{
-		ctx:                   ctx,
-		allocatedTracks:       make(map[string]*mediasource.Track),
-		allocatedSinks:        make(map[string]*mediasink.Sink),
-		allocatedDataChannels: make(map[string]*data.DataChannel),
+		config: webrtc.Configuration{},
+		ctx:    ctx,
 	}
 
 	if pc.peerConnection, err = api.NewPeerConnection(pc.config); err != nil {
 		return nil, err
 	}
+
+	pc.onTrackEvent()
+	pc.onConnectionStateChangeEvent()
 
 	for _, option := range options {
 		if err := option(pc); err != nil {
@@ -43,27 +45,83 @@ func CreatePeerConnection(ctx context.Context, api *webrtc.API, options ...PeerC
 		}
 	}
 
-	pc.onTrackEvent()
-	pc.onConnectionStateChangeEvent()
-
 	return pc, err
 }
 
 func (pc *PeerConnection) onTrackEvent() {
+	fmt.Println("setting up on track event")
 	pc.peerConnection.OnTrack(func(remote *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		if _, exists := pc.allocatedSinks[remote.ID()]; !exists {
-			fmt.Println(errors.New("no allocated sinks for remote track"), remote.ID())
+		fmt.Println("got a track with ID: ", remote.ID())
+
+		if pc.sinks == nil {
+			fmt.Println("got a remote track but sinks are not enabled...")
+		}
+		if sink, err := pc.sinks.GetSink(remote.ID()); err == nil {
+			fmt.Println("found existing sink for track ID:", remote.ID())
+			sink.SetTrack(remote)
+			sink.Start()
 			return
 		}
 
-		sink := pc.allocatedSinks[remote.ID()]
-		sink.SetTrack(remote)
-		sink.Start()
+		fmt.Println("no sink pre-set for ID:", remote.ID())
+		fmt.Println("creating a temporary sink...")
+
+		sink, err := pc.sinks.CreateSink(remote.ID(), mediasink.WithRTSPHost(8554, remote.ID(), rtsp.WithH264OptionsFromRemote(remote)))
+		if err != nil {
+			fmt.Println("failed to create sink:", err)
+		} else {
+			sink.SetTrack(remote)
+			sink.Start()
+			fmt.Println("temporary sink created and started for track ID:", remote.ID())
+		}
 	})
 }
 
 func (pc *PeerConnection) onConnectionStateChangeEvent() {
 	pc.peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		fmt.Printf("peer connection state with label  changed to %s\n", state.String())
+		fmt.Printf("peer connection state with label changed to %s\n", state.String())
 	})
+}
+
+func (pc *PeerConnection) CreateDataChannel(label string, options ...data.LoopBackOption) error {
+	if pc.dataChannels == nil {
+		return errors.New("data channels are not enabled")
+	}
+	return pc.dataChannels.CreateDataChannel(label, pc.peerConnection, options...)
+}
+
+func (pc *PeerConnection) CreateMediaSource(options ...mediasource.TrackOption) error {
+	if pc.dataChannels == nil {
+		return errors.New("media source are not enabled")
+	}
+	_, err := pc.tracks.CreateTrack(pc.peerConnection, options...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (pc *PeerConnection) CreateMediaSink(label string, options ...mediasink.StreamOption) error {
+	if pc.dataChannels == nil {
+		return errors.New("media sink are not enabled")
+	}
+	if _, err := pc.sinks.CreateSink(label, options...); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (pc *PeerConnection) Connect(category string) error {
+	// Debug: Print all transceivers before connecting
+	if err := pc.signal.Connect(category, "MAIN"); err != nil {
+		return err
+	}
+
+	if pc.tracks != nil {
+		fmt.Println("Starting all media source tracks...")
+		pc.tracks.StartAll()
+	}
+
+	return nil
 }

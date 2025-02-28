@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"time"
 
 	"github.com/asticode/go-astiav"
 	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
@@ -22,44 +21,46 @@ func main() {
 	mediaEngine := &webrtc.MediaEngine{}
 	interceptorRegistry := &interceptor.Registry{}
 
+	if err := webrtc.RegisterDefaultInterceptors(mediaEngine, interceptorRegistry); err != nil {
+		panic(err)
+	}
+
 	deliveryDrone, err := client.CreatePeerConnections(
 		ctx, mediaEngine, interceptorRegistry,
-		client.WithDataChannels(),
-		client.WithMediaSources(
-			mediasource.WithH264MediaEngine(constants.DefaultVideoClockRate, mediasource.PacketisationMode1, mediasource.ProfileLevelBaseline42),
-			mediasource.WithNACKInterceptor(mediasource.NACKGeneratorLowLatency, mediasource.NACKResponderLowLatency),
-			mediasource.WithFLEXFECInterceptor(),
-			mediasource.WithJitterBufferInterceptor(),
-			mediasource.WithRTCPReportsInterceptor(mediasource.RTCPReportIntervalLowLatency),
-			mediasource.WithTWCCSenderInterceptor(mediasource.TWCCIntervalLowLatency),
-			mediasource.WithBandwidthEstimatorInterceptor(2500, 50*time.Millisecond),
-		),
+		client.WithH264MediaEngine(constants.DefaultVideoClockRate, client.PacketisationMode1, client.ProfileLevelBaseline42),
+		client.WithNACKInterceptor(client.NACKGeneratorLowLatency, client.NACKResponderLowLatency),
+		client.WithFLEXFECInterceptor(),
+		// client.WithJitterBufferInterceptor(),
+		client.WithRTCPReportsInterceptor(client.RTCPReportIntervalLowLatency),
+		client.WithTWCCSenderInterceptor(client.TWCCIntervalLowLatency),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = deliveryDrone.CreatePeerConnection(
+	mainPeerConnection, err := deliveryDrone.CreatePeerConnection(
 		"MAIN",
 		client.WithRTCConfiguration(config.GetRTCConfiguration()),
 		client.WithOfferSignal,
+		client.WithMediaSources(),
+		client.WithDataChannels(),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	if err := deliveryDrone.CreateDataChannel("MAVLINK", "MAIN",
+	if err := mainPeerConnection.CreateDataChannel("MAVLINK",
 		data.WithRandomBindPort,
 		// data.WithMAVP2P(os.Getenv("MAVP2P_EXE_PATH"), os.Getenv("MAVLINK_SERIAL")),
 	); err != nil {
 		panic(err)
 	}
 
-	if err := deliveryDrone.CreateMediaSource("MAIN",
-		mediasource.WithH264Track(constants.DefaultVideoClockRate, "A8-MINI"),
+	if err := mainPeerConnection.CreateMediaSource(
+		mediasource.WithH264Track("A8-MINI", constants.DefaultVideoClockRate, mediasource.PacketisationMode1, mediasource.ProfileLevelBaseline42),
 		mediasource.WithPriority(mediasource.Level5),
 		mediasource.WithStream(
-			// mediasource.WithBufferSize(int(constants.DefaultVideoFPS*3)),
+			mediasource.WithBufferSize(int(constants.DefaultVideoFPS*3)),
 			mediasource.WithDemuxer(
 				"/dev/video0",
 				// "rtsp://192.168.144.25:8554/main.264",
@@ -84,8 +85,9 @@ func main() {
 		panic(err)
 	}
 
-	if err := deliveryDrone.Connect("DELIVERY", "MAIN"); err != nil {
+	if err := mainPeerConnection.Connect("DELIVERY"); err != nil {
 		panic(err)
 	}
+
 	deliveryDrone.WaitUntilClosed()
 }

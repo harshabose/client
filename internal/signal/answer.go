@@ -67,7 +67,7 @@ loop:
 					continue loop
 				}
 			}
-			data = snapshot.Data()[FieldOffer].(map[string]interface{})
+			data = snapshot.Data()
 
 			if currentStatus, exists := data[FieldStatus]; !exists || currentStatus != FieldStatusPending {
 				continue loop
@@ -78,7 +78,7 @@ loop:
 	}
 	fmt.Println("Found Offer. Creating answer...")
 
-	return signal.answer(data)
+	return signal.answer(data[FieldOffer].(map[string]interface{}))
 }
 
 func (signal *AnswerSignal) answer(offer map[string]interface{}) error {
@@ -86,6 +86,7 @@ func (signal *AnswerSignal) answer(offer map[string]interface{}) error {
 	if !ok {
 		return fmt.Errorf("invalid SDP format in offer")
 	}
+
 	if err := signal.peerConnection.SetRemoteDescription(webrtc.SessionDescription{
 		Type: webrtc.SDPTypeOffer,
 		SDP:  sdp,
