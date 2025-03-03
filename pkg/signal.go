@@ -1,4 +1,4 @@
-package signal
+package client
 
 const (
 	FieldOffer           = "offer"

@@ -1,4 +1,4 @@
-package signal
+package client
 
 import (
 	"context"
@@ -10,8 +10,6 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/harshabose/simple_webrtc_comm/client/internal/config"
 
 	"github.com/pion/webrtc/v4"
 )
@@ -32,7 +30,7 @@ func CreateAnswerSignal(ctx context.Context, peerConnection *webrtc.PeerConnecti
 		err           error
 	)
 
-	if configuration, err = config.GetFirebaseConfiguration(); err != nil {
+	if configuration, err = GetFirebaseConfiguration(); err != nil {
 		panic(err)
 	}
 	if app, err = firebase.NewApp(ctx, nil, configuration); err != nil {

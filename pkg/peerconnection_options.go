@@ -5,8 +5,6 @@ import (
 	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
 	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
 	"github.com/pion/webrtc/v4"
-
-	"github.com/harshabose/simple_webrtc_comm/client/internal/signal"
 )
 
 type PeerConnectionOption = func(*PeerConnection) error
@@ -19,12 +17,12 @@ func WithRTCConfiguration(config webrtc.Configuration) PeerConnectionOption {
 }
 
 func WithOfferSignal(connection *PeerConnection) error {
-	connection.signal = signal.CreateOfferSignal(connection.ctx, connection.peerConnection)
+	connection.signal = CreateOfferSignal(connection.ctx, connection.peerConnection)
 	return nil
 }
 
 func WithAnswerSignal(connection *PeerConnection) error {
-	connection.signal = signal.CreateAnswerSignal(connection.ctx, connection.peerConnection)
+	connection.signal = CreateAnswerSignal(connection.ctx, connection.peerConnection)
 	return nil
 }
 

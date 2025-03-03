@@ -11,7 +11,6 @@ import (
 
 	"github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
 
-	"github.com/harshabose/simple_webrtc_comm/client/internal/config"
 	"github.com/harshabose/simple_webrtc_comm/client/internal/constants"
 	"github.com/harshabose/simple_webrtc_comm/client/pkg"
 )
@@ -40,7 +39,7 @@ func main() {
 
 	mainPeerConnection, err := deliveryDrone.CreatePeerConnection(
 		"MAIN",
-		client.WithRTCConfiguration(config.GetRTCConfiguration()),
+		client.WithRTCConfiguration(client.GetRTCConfiguration()),
 		client.WithOfferSignal,
 		client.WithMediaSources(),
 		client.WithDataChannels(),

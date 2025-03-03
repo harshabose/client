@@ -7,7 +7,6 @@ import (
 	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v4"
 
-	"github.com/harshabose/simple_webrtc_comm/client/internal/config"
 	"github.com/harshabose/simple_webrtc_comm/client/internal/constants"
 	"github.com/harshabose/simple_webrtc_comm/client/pkg"
 )
@@ -38,7 +37,7 @@ func main() {
 	// enable needed peer connection options/capabilities
 	mainPeerConnection, err := groundstation.CreatePeerConnection(
 		"MAIN",
-		client.WithRTCConfiguration(config.GetRTCConfiguration()),
+		client.WithRTCConfiguration(client.GetRTCConfiguration()),
 		client.WithAnswerSignal,
 		client.WithMediaSinks(),
 		client.WithDataChannels(),
