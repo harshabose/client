@@ -90,11 +90,11 @@ func (pc *PeerConnection) CreateDataChannel(label string, options ...data.LoopBa
 	return pc.dataChannels.CreateDataChannel(label, pc.peerConnection, options...)
 }
 
-func (pc *PeerConnection) CreateMediaSource(options ...mediasource.TrackOption) error {
+func (pc *PeerConnection) CreateMediaSource(label string, options ...mediasource.TrackOption) error {
 	if pc.dataChannels == nil {
 		return errors.New("media source are not enabled")
 	}
-	_, err := pc.tracks.CreateTrack(pc.peerConnection, options...)
+	_, err := pc.tracks.CreateTrack(label, pc.peerConnection, options...)
 	if err != nil {
 		return err
 	}

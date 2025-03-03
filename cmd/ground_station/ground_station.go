@@ -22,7 +22,7 @@ func main() {
 	}
 
 	// enable needed client options/capabilities
-	groundstation, err := client.CreatePeerConnections(
+	groundstation, err := client.CreateClient(
 		ctx, mediaEngine, interceptorRegistry,
 		client.WithH264MediaEngine(constants.DefaultVideoClockRate, client.PacketisationMode1, client.ProfileLevelBaseline42),
 		client.WithNACKInterceptor(client.NACKGeneratorLowLatency, client.NACKResponderLowLatency),

@@ -16,7 +16,7 @@ type PeerConnections struct {
 	ctx                 context.Context
 }
 
-func CreatePeerConnections(ctx context.Context, mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry, options ...PeerConnectionsOption) (*PeerConnections, error) {
+func CreateClient(ctx context.Context, mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry, options ...PeerConnectionsOption) (*PeerConnections, error) {
 	peerConnections := &PeerConnections{
 		mediaEngine:         mediaEngine,
 		interceptorRegistry: interceptorRegistry,

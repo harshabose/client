@@ -25,7 +25,7 @@ func main() {
 		panic(err)
 	}
 
-	deliveryDrone, err := client.CreatePeerConnections(
+	deliveryDrone, err := client.CreateClient(
 		ctx, mediaEngine, interceptorRegistry,
 		client.WithH264MediaEngine(constants.DefaultVideoClockRate, client.PacketisationMode1, client.ProfileLevelBaseline42),
 		client.WithNACKInterceptor(client.NACKGeneratorLowLatency, client.NACKResponderLowLatency),
@@ -56,8 +56,8 @@ func main() {
 		panic(err)
 	}
 
-	if err := mainPeerConnection.CreateMediaSource(
-		mediasource.WithH264Track("A8-MINI", constants.DefaultVideoClockRate, mediasource.PacketisationMode1, mediasource.ProfileLevelBaseline42),
+	if err := mainPeerConnection.CreateMediaSource("A8-MINI",
+		mediasource.WithH264Track(constants.DefaultVideoClockRate, mediasource.PacketisationMode1, mediasource.ProfileLevelBaseline42),
 		mediasource.WithPriority(mediasource.Level5),
 		mediasource.WithStream(
 			mediasource.WithBufferSize(int(constants.DefaultVideoFPS*3)),
