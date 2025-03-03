@@ -8,7 +8,7 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-type PeerConnections struct {
+type Client struct {
 	peerConnections     map[string]*PeerConnection
 	mediaEngine         *webrtc.MediaEngine
 	interceptorRegistry *interceptor.Registry
@@ -16,8 +16,15 @@ type PeerConnections struct {
 	ctx                 context.Context
 }
 
-func CreateClient(ctx context.Context, mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry, options ...PeerConnectionsOption) (*PeerConnections, error) {
-	peerConnections := &PeerConnections{
+func CreateClient(ctx context.Context, mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry, options ...ClientOption) (*Client, error) {
+	if mediaEngine == nil {
+		mediaEngine = &webrtc.MediaEngine{}
+	}
+	if interceptorRegistry == nil {
+		interceptorRegistry = &interceptor.Registry{}
+	}
+
+	peerConnections := &Client{
 		mediaEngine:         mediaEngine,
 		interceptorRegistry: interceptorRegistry,
 		peerConnections:     make(map[string]*PeerConnection),
@@ -35,7 +42,7 @@ func CreateClient(ctx context.Context, mediaEngine *webrtc.MediaEngine, intercep
 	return peerConnections, nil
 }
 
-func (pc *PeerConnections) CreatePeerConnection(label string, options ...PeerConnectionOption) (*PeerConnection, error) {
+func (pc *Client) CreatePeerConnection(label string, options ...PeerConnectionOption) (*PeerConnection, error) {
 	var err error
 
 	if _, exists := pc.peerConnections[label]; exists {
@@ -49,13 +56,13 @@ func (pc *PeerConnections) CreatePeerConnection(label string, options ...PeerCon
 	return pc.peerConnections[label], nil
 }
 
-func (pc *PeerConnections) GetPeerConnection(label string) (*PeerConnection, error) {
+func (pc *Client) GetPeerConnection(label string) (*PeerConnection, error) {
 	if _, exists := pc.peerConnections[label]; !exists {
 		return nil, errors.New("peer connection not found")
 	}
 	return pc.peerConnections[label], nil
 }
 
-func (pc *PeerConnections) WaitUntilClosed() {
+func (pc *Client) WaitUntilClosed() {
 	<-pc.ctx.Done()
 }

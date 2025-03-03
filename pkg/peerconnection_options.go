@@ -45,7 +45,7 @@ func WithMediaSinks(options ...mediasink.SinksOptions) PeerConnectionOption {
 		if pc.sinks, err = mediasink.CreateSinks(pc.ctx, options...); err != nil {
 			return err
 		}
-		// pc.onTrackEvent()
+		pc.onTrackEvent()
 
 		return nil
 	}

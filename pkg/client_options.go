@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pion/interceptor/pkg/cc"
 	"github.com/pion/interceptor/pkg/flexfec"
+	"github.com/pion/interceptor/pkg/gcc"
 	"github.com/pion/interceptor/pkg/jitterbuffer"
 	"github.com/pion/interceptor/pkg/nack"
 	"github.com/pion/interceptor/pkg/report"
@@ -13,7 +15,7 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-type PeerConnectionsOption = func(*PeerConnections) error
+type ClientOption = func(*Client) error
 
 type PacketisationMode uint8
 
@@ -42,9 +44,9 @@ const (
 	ProfileLevelHigh42 ProfileLevel = "64002a" // Level 4.2
 )
 
-func WithH264MediaEngine(clockrate uint32, packetisationMode PacketisationMode, profileLevelID ProfileLevel) PeerConnectionsOption {
-	return func(pc *PeerConnections) error {
-		if err := pc.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+func WithH264MediaEngine(clockrate uint32, packetisationMode PacketisationMode, profileLevelID ProfileLevel) ClientOption {
+	return func(client *Client) error {
+		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
 				MimeType:    webrtc.MimeTypeH264,
 				ClockRate:   clockrate,
@@ -59,6 +61,24 @@ func WithH264MediaEngine(clockrate uint32, packetisationMode PacketisationMode, 
 	}
 }
 
+func WithDefaultMediaEngine() ClientOption {
+	return func(client *Client) error {
+		if err := client.mediaEngine.RegisterDefaultCodecs(); err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+func WithDefaultInterceptorRegistry() ClientOption {
+	return func(client *Client) error {
+		if err := webrtc.RegisterDefaultInterceptors(client.mediaEngine, client.interceptorRegistry); err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
 type StereoType uint8
 
 const (
@@ -66,9 +86,9 @@ const (
 	Stereo StereoType = 1
 )
 
-func WithOpusMediaEngine(samplerate uint32, channelLayout uint16, stereo StereoType) PeerConnectionsOption {
-	return func(pc *PeerConnections) error {
-		if err := pc.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+func WithOpusMediaEngine(samplerate uint32, channelLayout uint16, stereo StereoType) ClientOption {
+	return func(client *Client) error {
+		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
 				MimeType:    webrtc.MimeTypeOpus,
 				ClockRate:   samplerate,
@@ -101,8 +121,8 @@ var (
 	NACKResponderLowBandwidth NACKResponderOptions = []nack.ResponderOption{nack.ResponderSize(4096)}
 )
 
-func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions NACKResponderOptions) PeerConnectionsOption {
-	return func(pc *PeerConnections) error {
+func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions NACKResponderOptions) ClientOption {
+	return func(client *Client) error {
 		var (
 			generator *nack.GeneratorInterceptorFactory
 			responder *nack.ResponderInterceptorFactory
@@ -115,9 +135,9 @@ func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions
 			return err
 		}
 
-		pc.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack"}, webrtc.RTPCodecTypeVideo)
-		pc.interceptorRegistry.Add(responder)
-		pc.interceptorRegistry.Add(generator)
+		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack"}, webrtc.RTPCodecTypeVideo)
+		client.interceptorRegistry.Add(responder)
+		client.interceptorRegistry.Add(generator)
 
 		return nil
 	}
@@ -132,20 +152,20 @@ const (
 	TWCCIntervalLowBandwidth = TWCCSenderInterval(500 * time.Millisecond)
 )
 
-func WithTWCCSenderInterceptor(interval TWCCSenderInterval) PeerConnectionsOption {
-	return func(pc *PeerConnections) error {
+func WithTWCCSenderInterceptor(interval TWCCSenderInterval) ClientOption {
+	return func(client *Client) error {
 		var (
 			generator *twcc.SenderInterceptorFactory
 			err       error
 		)
 
-		pc.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBTransportCC}, webrtc.RTPCodecTypeVideo)
-		if err := pc.mediaEngine.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: sdp.TransportCCURI}, webrtc.RTPCodecTypeVideo); err != nil {
+		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBTransportCC}, webrtc.RTPCodecTypeVideo)
+		if err := client.mediaEngine.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: sdp.TransportCCURI}, webrtc.RTPCodecTypeVideo); err != nil {
 			return err
 		}
 
-		pc.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBTransportCC}, webrtc.RTPCodecTypeAudio)
-		if err := pc.mediaEngine.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: sdp.TransportCCURI}, webrtc.RTPCodecTypeAudio); err != nil {
+		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBTransportCC}, webrtc.RTPCodecTypeAudio)
+		if err := client.mediaEngine.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: sdp.TransportCCURI}, webrtc.RTPCodecTypeAudio); err != nil {
 			return err
 		}
 
@@ -153,14 +173,14 @@ func WithTWCCSenderInterceptor(interval TWCCSenderInterval) PeerConnectionsOptio
 			return err
 		}
 
-		pc.interceptorRegistry.Add(generator)
+		client.interceptorRegistry.Add(generator)
 		return nil
 	}
 }
 
 // WARN: DO NOT USE THIS, PION HAS SOME ISSUE WITH THIS WHICH MAKES THE ONTRACK CALLBACK NOT FIRE
-func WithJitterBufferInterceptor() PeerConnectionsOption {
-	return func(pc *PeerConnections) error {
+func WithJitterBufferInterceptor() ClientOption {
+	return func(client *Client) error {
 		var (
 			jitterBuffer *jitterbuffer.InterceptorFactory
 			err          error
@@ -169,7 +189,7 @@ func WithJitterBufferInterceptor() PeerConnectionsOption {
 		if jitterBuffer, err = jitterbuffer.NewInterceptor(); err != nil {
 			return err
 		}
-		pc.interceptorRegistry.Add(jitterBuffer)
+		client.interceptorRegistry.Add(jitterBuffer)
 		return nil
 	}
 }
@@ -183,8 +203,8 @@ const (
 	RTCPReportIntervalLowBandwidth = RTCPReportInterval(2 * time.Second)
 )
 
-func WithRTCPReportsInterceptor(interval RTCPReportInterval) PeerConnectionsOption {
-	return func(pc *PeerConnections) error {
+func WithRTCPReportsInterceptor(interval RTCPReportInterval) ClientOption {
+	return func(client *Client) error {
 		var (
 			sender   *report.SenderInterceptorFactory
 			receiver *report.ReceiverInterceptorFactory
@@ -198,16 +218,16 @@ func WithRTCPReportsInterceptor(interval RTCPReportInterval) PeerConnectionsOpti
 			return err
 		}
 
-		pc.interceptorRegistry.Add(receiver)
-		pc.interceptorRegistry.Add(sender)
+		client.interceptorRegistry.Add(receiver)
+		client.interceptorRegistry.Add(sender)
 
 		return nil
 	}
 }
 
 // WARN: DO NOT USE FLEXFEC YET, AS THE FECOPTION ARE NOT YET IMPLEMENTED
-func WithFLEXFECInterceptor() PeerConnectionsOption {
-	return func(pc *PeerConnections) error {
+func WithFLEXFECInterceptor() ClientOption {
+	return func(client *Client) error {
 		var (
 			fecInterceptor *flexfec.FecInterceptorFactory
 			err            error
@@ -218,7 +238,41 @@ func WithFLEXFECInterceptor() PeerConnectionsOption {
 			return err
 		}
 
-		pc.interceptorRegistry.Add(fecInterceptor)
+		client.interceptorRegistry.Add(fecInterceptor)
+		return nil
+	}
+}
+
+func WithBandwidthControlInterceptor(initialBitrate int, interval time.Duration) ClientOption {
+	return func(client *Client) error {
+		congestionController, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
+			return gcc.NewSendSideBWE(gcc.SendSideBWEInitialBitrate(initialBitrate))
+		})
+		if err != nil {
+			return err
+		}
+
+		congestionController.OnNewPeerConnection(func(id string, estimator cc.BandwidthEstimator) {
+			fmt.Printf("got bitrate estimator for peer connection with label: %s\n", id)
+
+			if _, exists := client.peerConnections[id]; !exists {
+				fmt.Println("peer connection does not exists on client. label:", id)
+				return
+			}
+
+			if client.peerConnections[id].bwController == nil {
+				return
+			}
+
+			client.peerConnections[id].bwController.interval = interval
+			client.peerConnections[id].bwController.estimator = estimator
+		})
+
+		client.interceptorRegistry.Add(congestionController)
+		if err := webrtc.ConfigureTWCCHeaderExtensionSender(client.mediaEngine, client.interceptorRegistry); err != nil {
+			return err
+		}
+
 		return nil
 	}
 }
