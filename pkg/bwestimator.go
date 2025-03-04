@@ -3,10 +3,12 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
-	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
 	"github.com/pion/interceptor/pkg/cc"
+
+	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
 )
 
 type bwController struct {
@@ -29,6 +31,7 @@ func (bwc *bwController) Start() {
 		return
 	}
 	go bwc.loop()
+	fmt.Println("bw estimator started")
 }
 
 func (bwc *bwController) Subscribe(track *mediasource.Track) error {
@@ -42,6 +45,7 @@ func (bwc *bwController) Subscribe(track *mediasource.Track) error {
 		return errors.New("bwc track subscriber already exists")
 	}
 	bwc.subs[track] = channel
+	fmt.Println("new subscriber added with label:", track.GetTrack().ID())
 
 	return nil
 }
@@ -64,7 +68,10 @@ func (bwc *bwController) loop() {
 				totalPriority += track.GetPriority()
 			}
 
-			totalBitrate := bwc.estimator.GetTargetBitrate()
+			totalBitrate, err := bwc.getBitrate()
+			if err != nil {
+				continue
+			}
 
 			for track, channel := range bwc.subs {
 				if track.GetPriority() == mediasource.Level0 {
@@ -72,6 +79,7 @@ func (bwc *bwController) loop() {
 				}
 				bitrate := int64(float64(totalBitrate) * float64(track.GetPriority()) / float64(totalPriority))
 				bwc.send(channel, bitrate)
+				fmt.Printf("send to track with label '%s' bitrate of %d\n", track.GetTrack().ID(), bitrate)
 			}
 		}
 	}
@@ -85,5 +93,25 @@ func (bwc *bwController) send(channel chan int64, bitrate int64) {
 	case <-ctx.Done():
 		return
 	case channel <- bitrate:
+	}
+}
+
+func (bwc *bwController) getBitrate() (int, error) {
+	ctx, cancel := context.WithTimeout(bwc.ctx, bwc.interval)
+	defer cancel()
+
+	resultCh := make(chan int, 1)
+
+	// Run GetTargetBitrate in a separate goroutine
+	go func() {
+		resultCh <- bwc.estimator.GetTargetBitrate()
+	}()
+
+	// Wait for either the result or timeout
+	select {
+	case bitrate := <-resultCh:
+		return bitrate, nil
+	case <-ctx.Done():
+		return 0, ctx.Err()
 	}
 }

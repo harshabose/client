@@ -6,8 +6,8 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-func GetRTCConfiguration() webrtc.Configuration {
-	config := webrtc.Configuration{
+func GetRTCConfiguration() *webrtc.Configuration {
+	return &webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
 				URLs: []string{os.Getenv("STUN_SERVER_URL")},
@@ -31,7 +31,9 @@ func GetRTCConfiguration() webrtc.Configuration {
 				CredentialType: webrtc.ICECredentialTypePassword,
 			},
 		},
+		ICETransportPolicy: webrtc.ICETransportPolicyAll,
+		BundlePolicy:       webrtc.BundlePolicyMaxCompat,
+		RTCPMuxPolicy:      webrtc.RTCPMuxPolicyRequire,
+		SDPSemantics:       webrtc.SDPSemanticsUnifiedPlan,
 	}
-
-	return config
 }

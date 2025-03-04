@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/pion/webrtc/v4"
+
 	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
 	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg/rtsp"
 	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
-	"github.com/pion/webrtc/v4"
 
 	"github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
 )
@@ -18,7 +19,7 @@ type PeerConnection struct {
 	dataChannels   *data.DataChannels
 	tracks         *mediasource.Tracks
 	sinks          *mediasink.Sinks
-	config         webrtc.Configuration
+	config         *webrtc.Configuration
 	signal         BaseSignal
 	bwController   *bwController
 	ctx            context.Context
@@ -27,11 +28,12 @@ type PeerConnection struct {
 func CreatePeerConnection(ctx context.Context, api *webrtc.API, options ...PeerConnectionOption) (*PeerConnection, error) {
 	var err error
 	pc := &PeerConnection{
-		config: webrtc.Configuration{},
-		ctx:    ctx,
+		config:       &webrtc.Configuration{},
+		bwController: createBWController(ctx),
+		ctx:          ctx,
 	}
 
-	if pc.peerConnection, err = api.NewPeerConnection(pc.config); err != nil {
+	if pc.peerConnection, err = api.NewPeerConnection(*pc.config); err != nil {
 		return nil, err
 	}
 
@@ -47,10 +49,7 @@ func CreatePeerConnection(ctx context.Context, api *webrtc.API, options ...PeerC
 }
 
 func (pc *PeerConnection) onTrackEvent() {
-	fmt.Println("setting up on track event")
 	pc.peerConnection.OnTrack(func(remote *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		fmt.Println("got a track with ID: ", remote.ID())
-
 		if pc.sinks == nil {
 			fmt.Println("got a remote track but sinks are not enabled...")
 		}
@@ -99,6 +98,7 @@ func (pc *PeerConnection) CreateMediaSource(label string, withBWController bool,
 	}
 
 	if pc.bwController.estimator != nil && withBWController {
+		fmt.Printf("subscribing media source with label '%s' to bw estimator\n", label)
 		return pc.bwController.Subscribe(track)
 	}
 

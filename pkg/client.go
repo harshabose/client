@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/pion/interceptor"
+	"github.com/pion/interceptor/pkg/cc"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -12,6 +13,7 @@ type Client struct {
 	peerConnections     map[string]*PeerConnection
 	mediaEngine         *webrtc.MediaEngine
 	interceptorRegistry *interceptor.Registry
+	estimatorChan       chan cc.BandwidthEstimator
 	api                 *webrtc.API
 	ctx                 context.Context
 }
@@ -28,6 +30,7 @@ func CreateClient(ctx context.Context, mediaEngine *webrtc.MediaEngine, intercep
 		mediaEngine:         mediaEngine,
 		interceptorRegistry: interceptorRegistry,
 		peerConnections:     make(map[string]*PeerConnection),
+		estimatorChan:       make(chan cc.BandwidthEstimator),
 		ctx:                 ctx,
 	}
 
@@ -42,27 +45,30 @@ func CreateClient(ctx context.Context, mediaEngine *webrtc.MediaEngine, intercep
 	return peerConnections, nil
 }
 
-func (pc *Client) CreatePeerConnection(label string, options ...PeerConnectionOption) (*PeerConnection, error) {
+func (client *Client) CreatePeerConnection(label string, options ...PeerConnectionOption) (*PeerConnection, error) {
 	var err error
 
-	if _, exists := pc.peerConnections[label]; exists {
+	if _, exists := client.peerConnections[label]; exists {
 		return nil, errors.New("peer connection already exists")
 	}
 
-	if pc.peerConnections[label], err = CreatePeerConnection(pc.ctx, pc.api, options...); err != nil {
+	if client.peerConnections[label], err = CreatePeerConnection(client.ctx, client.api, options...); err != nil {
 		return nil, err
 	}
 
-	return pc.peerConnections[label], nil
+	// client.peerConnections[label].bwController.estimator = <-client.estimatorChan
+	// client.peerConnections[label].bwController.interval = 50 * time.Millisecond
+
+	return client.peerConnections[label], nil
 }
 
-func (pc *Client) GetPeerConnection(label string) (*PeerConnection, error) {
-	if _, exists := pc.peerConnections[label]; !exists {
+func (client *Client) GetPeerConnection(label string) (*PeerConnection, error) {
+	if _, exists := client.peerConnections[label]; !exists {
 		return nil, errors.New("peer connection not found")
 	}
-	return pc.peerConnections[label], nil
+	return client.peerConnections[label], nil
 }
 
-func (pc *Client) WaitUntilClosed() {
-	<-pc.ctx.Done()
+func (client *Client) WaitUntilClosed() {
+	<-client.ctx.Done()
 }

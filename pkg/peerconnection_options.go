@@ -1,15 +1,16 @@
 package client
 
 import (
+	"github.com/pion/webrtc/v4"
+
 	"github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
 	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
 	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
-	"github.com/pion/webrtc/v4"
 )
 
 type PeerConnectionOption = func(*PeerConnection) error
 
-func WithRTCConfiguration(config webrtc.Configuration) PeerConnectionOption {
+func WithRTCConfiguration(config *webrtc.Configuration) PeerConnectionOption {
 	return func(connection *PeerConnection) error {
 		connection.config = config
 		return nil
