@@ -243,6 +243,12 @@ func WithFLEXFECInterceptor() ClientOption {
 	}
 }
 
+func WithSimulcastExtensionHeaders() ClientOption {
+	return func(client *Client) error {
+		return webrtc.ConfigureSimulcastExtensionHeaders(client.mediaEngine)
+	}
+}
+
 func WithBandwidthControlInterceptor(initialBitrate int, interval time.Duration) ClientOption {
 	return func(client *Client) error {
 		congestionController, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
@@ -253,7 +259,9 @@ func WithBandwidthControlInterceptor(initialBitrate int, interval time.Duration)
 		}
 
 		congestionController.OnNewPeerConnection(func(id string, estimator cc.BandwidthEstimator) {
+			fmt.Println("sending estimator")
 			client.estimatorChan <- estimator
+			fmt.Println("send estimator")
 		})
 
 		client.interceptorRegistry.Add(congestionController)

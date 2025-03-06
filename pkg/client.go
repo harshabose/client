@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/cc"
@@ -30,7 +31,7 @@ func CreateClient(ctx context.Context, mediaEngine *webrtc.MediaEngine, intercep
 		mediaEngine:         mediaEngine,
 		interceptorRegistry: interceptorRegistry,
 		peerConnections:     make(map[string]*PeerConnection),
-		estimatorChan:       make(chan cc.BandwidthEstimator),
+		estimatorChan:       make(chan cc.BandwidthEstimator, 10),
 		ctx:                 ctx,
 	}
 
@@ -56,8 +57,12 @@ func (client *Client) CreatePeerConnection(label string, options ...PeerConnecti
 		return nil, err
 	}
 
-	// client.peerConnections[label].bwController.estimator = <-client.estimatorChan
-	// client.peerConnections[label].bwController.interval = 50 * time.Millisecond
+	// TODO: THIS WEIRD CHANNEL BASED APPROACH OF SETTING BW CONTROLLER IS REQUIRED BECAUSE OF THE
+	// TODO: THE WEIRD DESIGN OF CC INTERCEPTOR IN PION. TRACK THE ISSUE WITH "https://github.com/pion/webrtc/issues/3053"
+	if client.peerConnections[label].bwController != nil {
+		client.peerConnections[label].bwController.estimator = <-client.estimatorChan
+		client.peerConnections[label].bwController.interval = 50 * time.Millisecond
+	}
 
 	return client.peerConnections[label], nil
 }
