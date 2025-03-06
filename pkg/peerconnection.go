@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	
+
 	"github.com/pion/webrtc/v4"
-	
+
 	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
 	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg/rtsp"
 	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
-	
+
 	"github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
 )
 
@@ -33,17 +33,17 @@ func CreatePeerConnection(ctx context.Context, label string, api *webrtc.API, op
 		config: &webrtc.Configuration{},
 		ctx:    ctx,
 	}
-	
+
 	if pc.peerConnection, err = api.NewPeerConnection(*pc.config); err != nil {
 		return nil, err
 	}
-	
+
 	for _, option := range options {
 		if err := option(pc); err != nil {
 			return nil, err
 		}
 	}
-	
+
 	return pc.onConnectionStateChangeEvent().onDataChannel(), err
 }
 
@@ -62,10 +62,10 @@ func (pc *PeerConnection) onTrackEvent() *PeerConnection {
 			sink.Start()
 			return
 		}
-		
+
 		fmt.Println("no sink pre-set for ID:", remote.ID())
 		fmt.Println("creating a temporary sink...")
-		
+
 		sink, err := pc.sinks.CreateSink(remote.ID(), mediasink.WithRTSPHost(8554, remote.ID(), rtsp.WithH264OptionsFromRemote(remote)))
 		if err != nil {
 			fmt.Println("failed to create sink:", err)
@@ -75,7 +75,7 @@ func (pc *PeerConnection) onTrackEvent() *PeerConnection {
 			fmt.Println("temporary sink created and started for track ID:", remote.ID())
 		}
 	})
-	
+
 	return pc
 }
 
@@ -111,17 +111,17 @@ func (pc *PeerConnection) CreateMediaSource(label string, withBWController bool,
 	if pc.tracks == nil {
 		return errors.New("media source are not enabled")
 	}
-	
+
 	track, err := pc.tracks.CreateTrack(label, pc.peerConnection, options...)
 	if err != nil {
 		return err
 	}
-	
+
 	if pc.bwController.estimator != nil && withBWController {
 		fmt.Printf("subscribing media source with label '%s' to bw estimator\n", label)
 		return pc.bwController.Subscribe(track)
 	}
-	
+
 	return nil
 }
 
@@ -139,7 +139,7 @@ func (pc *PeerConnection) Connect(category string) error {
 	if err := pc.signal.Connect(category, pc.label); err != nil {
 		return err
 	}
-	
+
 	if pc.tracks != nil {
 		fmt.Println("Starting all media source tracks...")
 		pc.tracks.StartAll()
@@ -147,6 +147,6 @@ func (pc *PeerConnection) Connect(category string) error {
 	if pc.bwController != nil {
 		pc.bwController.Start()
 	}
-	
+
 	return nil
 }

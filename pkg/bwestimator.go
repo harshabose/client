@@ -79,7 +79,6 @@ func (bwc *bwController) loop() {
 				}
 				bitrate := int64(float64(totalBitrate) * float64(track.GetPriority()) / float64(totalPriority))
 				bwc.send(channel, bitrate)
-				fmt.Printf("send to track with label '%s' bitrate of %d\n", track.GetTrack().ID(), bitrate)
 			}
 		}
 	}
