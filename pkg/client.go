@@ -52,7 +52,7 @@ func (client *Client) CreatePeerConnection(label string, options ...PeerConnecti
 		return nil, errors.New("peer connection already exists")
 	}
 
-	if client.peerConnections[label], err = CreatePeerConnection(client.ctx, client.api, options...); err != nil {
+	if client.peerConnections[label], err = CreatePeerConnection(client.ctx, label, client.api, options...); err != nil {
 		return nil, err
 	}
 

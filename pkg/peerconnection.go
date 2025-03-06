@@ -15,6 +15,7 @@ import (
 )
 
 type PeerConnection struct {
+	label          string
 	peerConnection *webrtc.PeerConnection
 	dataChannels   *data.DataChannels
 	tracks         *mediasource.Tracks
@@ -25,9 +26,10 @@ type PeerConnection struct {
 	ctx            context.Context
 }
 
-func CreatePeerConnection(ctx context.Context, api *webrtc.API, options ...PeerConnectionOption) (*PeerConnection, error) {
+func CreatePeerConnection(ctx context.Context, label string, api *webrtc.API, options ...PeerConnectionOption) (*PeerConnection, error) {
 	var err error
 	pc := &PeerConnection{
+		label:        label,
 		config:       &webrtc.Configuration{},
 		bwController: createBWController(ctx),
 		ctx:          ctx,
@@ -37,18 +39,20 @@ func CreatePeerConnection(ctx context.Context, api *webrtc.API, options ...PeerC
 		return nil, err
 	}
 
-	pc.onConnectionStateChangeEvent()
-
 	for _, option := range options {
 		if err := option(pc); err != nil {
 			return nil, err
 		}
 	}
 
-	return pc, err
+	return pc.onConnectionStateChangeEvent().onDataChannel(), err
 }
 
-func (pc *PeerConnection) onTrackEvent() {
+func (pc *PeerConnection) GetLabel() string {
+	return pc.label
+}
+
+func (pc *PeerConnection) onTrackEvent() *PeerConnection {
 	pc.peerConnection.OnTrack(func(remote *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		if pc.sinks == nil {
 			fmt.Println("got a remote track but sinks are not enabled...")
@@ -72,17 +76,34 @@ func (pc *PeerConnection) onTrackEvent() {
 			fmt.Println("temporary sink created and started for track ID:", remote.ID())
 		}
 	})
+
+	return pc
 }
 
-func (pc *PeerConnection) onConnectionStateChangeEvent() {
+func (pc *PeerConnection) onConnectionStateChangeEvent() *PeerConnection {
 	pc.peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		fmt.Printf("peer connection state with label changed to %s\n", state.String())
 	})
+	return pc
 }
 
-func (pc *PeerConnection) CreateDataChannel(label string, options ...data.LoopBackOption) error {
+func (pc *PeerConnection) onDataChannel() *PeerConnection {
+	pc.peerConnection.OnDataChannel(func(channel *webrtc.DataChannel) {
+		fmt.Println("got a non pre-negotiated datachannel with label:", channel.Label())
+		fmt.Println("creating a ad-hoc datachannel interface...")
+		dataChannel, err := pc.dataChannels.CreateDataChannel(channel.Label(), pc.peerConnection, data.WithRandomBindPort)
+		if err != nil {
+			fmt.Println(errors.New("failed to create datachannel"))
+		}
+		fmt.Println("successfully created a raw datachannel with bind port:", dataChannel.GetBindPort())
+		fmt.Println("send and receive to and from the above bind port")
+	})
+	return pc
+}
+
+func (pc *PeerConnection) CreateDataChannel(label string, options ...data.LoopBackOption) (*data.DataChannel, error) {
 	if pc.dataChannels == nil {
-		return errors.New("data channels are not enabled")
+		return nil, errors.New("data channels are not enabled")
 	}
 	return pc.dataChannels.CreateDataChannel(label, pc.peerConnection, options...)
 }
@@ -116,7 +137,7 @@ func (pc *PeerConnection) CreateMediaSink(label string, options ...mediasink.Str
 }
 
 func (pc *PeerConnection) Connect(category string) error {
-	if err := pc.signal.Connect(category, "MAIN"); err != nil {
+	if err := pc.signal.Connect(category, pc.label); err != nil {
 		return err
 	}
 

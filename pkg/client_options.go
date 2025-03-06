@@ -44,14 +44,14 @@ const (
 	ProfileLevelHigh42 ProfileLevel = "64002a" // Level 4.2
 )
 
-func WithH264MediaEngine(clockrate uint32, packetisationMode PacketisationMode, profileLevelID ProfileLevel) ClientOption {
+func WithH264MediaEngine(clockrate uint32, packetisationMode PacketisationMode, profileLevelID ProfileLevel, sps, pps string) ClientOption {
 	return func(client *Client) error {
 		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
 				MimeType:    webrtc.MimeTypeH264,
 				ClockRate:   clockrate,
 				Channels:    0,
-				SDPFmtpLine: fmt.Sprintf("level-asymmetry-allowed=1;packetization-mode=%d;profile-level-id=%s;sprop-parameter-sets=AAAAAWdCwCmRoB4AiflhAAADAAEAAAMAMo8YMqA=,AAAAAWjOD8g=", packetisationMode, profileLevelID),
+				SDPFmtpLine: fmt.Sprintf("level-asymmetry-allowed=1;packetization-mode=%d;profile-level-id=%s;sprop-parameter-sets=%s,%s", packetisationMode, profileLevelID, sps, pps),
 			},
 			PayloadType: 96,
 		}, webrtc.RTPCodecTypeVideo); err != nil {
