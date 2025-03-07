@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,14 +16,14 @@ import (
 )
 
 type AnswerSignal struct {
-	peerConnection *webrtc.PeerConnection
+	peerConnection *PeerConnection
 	app            *firebase.App
 	client         *firestore.Client
 	docRef         *firestore.DocumentRef
 	ctx            context.Context
 }
 
-func CreateAnswerSignal(ctx context.Context, peerConnection *webrtc.PeerConnection) *AnswerSignal {
+func CreateAnswerSignal(ctx context.Context, peerConnection *PeerConnection) *AnswerSignal {
 	var (
 		configuration option.ClientOption
 		app           *firebase.App
@@ -85,27 +86,35 @@ func (signal *AnswerSignal) answer(offer map[string]interface{}) error {
 		return fmt.Errorf("invalid SDP format in offer")
 	}
 
-	if err := signal.peerConnection.SetRemoteDescription(webrtc.SessionDescription{
+	if err := signal.peerConnection.peerConnection.SetRemoteDescription(webrtc.SessionDescription{
 		Type: webrtc.SDPTypeOffer,
 		SDP:  sdp,
 	}); err != nil {
 		return err
 	}
 
-	gatherComplete := webrtc.GatheringCompletePromise(signal.peerConnection)
-
-	answer, err := signal.peerConnection.CreateAnswer(nil)
+	answer, err := signal.peerConnection.peerConnection.CreateAnswer(nil)
 	if err != nil {
 		return fmt.Errorf("error while creating answer: %w", err)
 	}
-	if err := signal.peerConnection.SetLocalDescription(answer); err != nil {
+
+	if err := signal.peerConnection.peerConnection.SetLocalDescription(answer); err != nil {
 		return fmt.Errorf("error while setting local sdp: %w", err)
 	}
-	<-gatherComplete
+
+	timer := time.NewTicker(30 * time.Second)
+	defer timer.Stop()
+
+	select {
+	case <-webrtc.GatheringCompletePromise(signal.peerConnection.peerConnection):
+		fmt.Println("ICE Gathering complte")
+	case <-timer.C:
+		return errors.New("failed to gather ICE candidates within 30 seconds")
+	}
 
 	if _, err = signal.docRef.Set(signal.ctx, map[string]interface{}{
 		FieldAnswer: map[string]interface{}{
-			FieldSDP:       signal.peerConnection.LocalDescription().SDP,
+			FieldSDP:       signal.peerConnection.peerConnection.LocalDescription().SDP,
 			FieldUpdatedAt: firestore.ServerTimestamp,
 		},
 		FieldStatus: FieldStatusConnected,

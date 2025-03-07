@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,14 +15,14 @@ import (
 )
 
 type OfferSignal struct {
-	peerConnection *webrtc.PeerConnection
+	peerConnection *PeerConnection
 	app            *firebase.App
 	firebaseClient *firestore.Client
 	docRef         *firestore.DocumentRef
 	ctx            context.Context
 }
 
-func CreateOfferSignal(ctx context.Context, peerConnection *webrtc.PeerConnection) *OfferSignal {
+func CreateOfferSignal(ctx context.Context, peerConnection *PeerConnection) *OfferSignal {
 	var (
 		configuration  option.ClientOption
 		app            *firebase.App
@@ -62,19 +63,29 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 		}
 	}
 
-	offer, err := signal.peerConnection.CreateOffer(nil)
+	offer, err := signal.peerConnection.peerConnection.CreateOffer(nil)
 	if err != nil {
 		return fmt.Errorf("error while creating offer: %w", err)
 	}
 
-	if err := signal.peerConnection.SetLocalDescription(offer); err != nil {
+	if err := signal.peerConnection.peerConnection.SetLocalDescription(offer); err != nil {
 		return fmt.Errorf("error while setting local sdp: %w", err)
+	}
+
+	timer := time.NewTicker(30 * time.Second)
+	defer timer.Stop()
+
+	select {
+	case <-webrtc.GatheringCompletePromise(signal.peerConnection.peerConnection):
+		fmt.Println("ICE Gathering complete")
+	case <-timer.C:
+		return errors.New("failed to gather ICE candidates within 30 seconds")
 	}
 
 	if _, err = signal.docRef.Set(signal.ctx, map[string]interface{}{
 		FieldOffer: map[string]interface{}{
 			FieldCreatedAt: firestore.ServerTimestamp,
-			FieldSDP:       signal.peerConnection.LocalDescription().SDP,
+			FieldSDP:       signal.peerConnection.peerConnection.LocalDescription().SDP,
 			FieldUpdatedAt: firestore.ServerTimestamp,
 		},
 		FieldStatus: FieldStatusPending,
@@ -112,7 +123,7 @@ loop:
 			if !ok {
 				continue loop
 			}
-			if err = signal.peerConnection.SetRemoteDescription(webrtc.SessionDescription{
+			if err = signal.peerConnection.peerConnection.SetRemoteDescription(webrtc.SessionDescription{
 				Type: webrtc.SDPTypeAnswer,
 				SDP:  sdp,
 			}); err != nil {

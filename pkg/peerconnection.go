@@ -34,24 +34,24 @@ func CreatePeerConnection(ctx context.Context, label string, api *webrtc.API, op
 		ctx:    ctx,
 	}
 	
-	if pc.peerConnection, err = api.NewPeerConnection(*pc.config); err != nil {
-		return nil, err
-	}
-	
 	for _, option := range options {
 		if err := option(pc); err != nil {
 			return nil, err
 		}
 	}
 	
-	return pc.onConnectionStateChangeEvent().onDataChannel(), err
+	if pc.peerConnection, err = api.NewPeerConnection(*pc.config); err != nil {
+		return nil, err
+	}
+	
+	return pc.onConnectionStateChangeEvent().onDataChannel().onTrack().onICEConnectionStateChange().onICEGatheringStateChange().onICECandidate(), err
 }
 
 func (pc *PeerConnection) GetLabel() string {
 	return pc.label
 }
 
-func (pc *PeerConnection) onTrackEvent() *PeerConnection {
+func (pc *PeerConnection) onTrack() *PeerConnection {
 	pc.peerConnection.OnTrack(func(remote *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		if pc.sinks == nil {
 			fmt.Println("got a remote track but sinks are not enabled...")
@@ -82,6 +82,32 @@ func (pc *PeerConnection) onTrackEvent() *PeerConnection {
 func (pc *PeerConnection) onConnectionStateChangeEvent() *PeerConnection {
 	pc.peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		fmt.Printf("peer connection state with label changed to %s\n", state.String())
+	})
+	return pc
+}
+
+func (pc *PeerConnection) onICEConnectionStateChange() *PeerConnection {
+	pc.peerConnection.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		fmt.Printf("ICE Connection State changed: %s\n", state.String())
+	})
+	return pc
+}
+
+func (pc *PeerConnection) onICEGatheringStateChange() *PeerConnection {
+	pc.peerConnection.OnICEGatheringStateChange(func(state webrtc.ICEGatheringState) {
+		fmt.Printf("ICE Gathering State changed: %s\n", state.String())
+	})
+	return pc
+}
+
+func (pc *PeerConnection) onICECandidate() *PeerConnection {
+	pc.peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+		if candidate == nil {
+			fmt.Println("ICE gathering complete")
+			return
+		}
+		
+		fmt.Printf("Found candidate: %s (type: %s)\n", candidate.String(), candidate.Typ)
 	})
 	return pc
 }

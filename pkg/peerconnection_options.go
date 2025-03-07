@@ -18,12 +18,12 @@ func WithRTCConfiguration(config *webrtc.Configuration) PeerConnectionOption {
 }
 
 func WithOfferSignal(connection *PeerConnection) error {
-	connection.signal = CreateOfferSignal(connection.ctx, connection.peerConnection)
+	connection.signal = CreateOfferSignal(connection.ctx, connection)
 	return nil
 }
 
 func WithAnswerSignal(connection *PeerConnection) error {
-	connection.signal = CreateAnswerSignal(connection.ctx, connection.peerConnection)
+	connection.signal = CreateAnswerSignal(connection.ctx, connection)
 	return nil
 }
 
@@ -46,7 +46,7 @@ func WithMediaSinks(options ...mediasink.SinksOptions) PeerConnectionOption {
 		if pc.sinks, err = mediasink.CreateSinks(pc.ctx, options...); err != nil {
 			return err
 		}
-		_ = pc.onTrackEvent()
+		_ = pc.onTrack()
 
 		return nil
 	}
