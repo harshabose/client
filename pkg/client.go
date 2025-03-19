@@ -17,9 +17,10 @@ type Client struct {
 	estimatorChan       chan cc.BandwidthEstimator
 	api                 *webrtc.API
 	ctx                 context.Context
+	cancel              context.CancelFunc
 }
 
-func CreateClient(ctx context.Context, mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry, options ...ClientOption) (*Client, error) {
+func CreateClient(ctx context.Context, cancel context.CancelFunc, mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry, options ...ClientOption) (*Client, error) {
 	if mediaEngine == nil {
 		mediaEngine = &webrtc.MediaEngine{}
 	}
@@ -33,6 +34,7 @@ func CreateClient(ctx context.Context, mediaEngine *webrtc.MediaEngine, intercep
 		peerConnections:     make(map[string]*PeerConnection),
 		estimatorChan:       make(chan cc.BandwidthEstimator, 10),
 		ctx:                 ctx,
+		cancel:              cancel,
 	}
 
 	for _, option := range options {
@@ -53,7 +55,7 @@ func (client *Client) CreatePeerConnection(label string, options ...PeerConnecti
 		return nil, errors.New("peer connection already exists")
 	}
 
-	if client.peerConnections[label], err = CreatePeerConnection(client.ctx, label, client.api, options...); err != nil {
+	if client.peerConnections[label], err = CreatePeerConnection(client.ctx, client.cancel, label, client.api, options...); err != nil {
 		return nil, err
 	}
 
@@ -76,4 +78,14 @@ func (client *Client) GetPeerConnection(label string) (*PeerConnection, error) {
 
 func (client *Client) WaitUntilClosed() {
 	<-client.ctx.Done()
+}
+
+func (client *Client) Close() error {
+	for _, peerConnection := range client.peerConnections {
+		if err := peerConnection.Close(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
