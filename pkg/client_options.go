@@ -3,7 +3,7 @@ package client
 import (
 	"fmt"
 	"time"
-
+	
 	"github.com/pion/interceptor/pkg/cc"
 	"github.com/pion/interceptor/pkg/flexfec"
 	"github.com/pion/interceptor/pkg/gcc"
@@ -32,12 +32,12 @@ const (
 	ProfileLevelBaseline31 ProfileLevel = "42001f" // Level 3.1 (720p)
 	ProfileLevelBaseline41 ProfileLevel = "420029" // Level 4.1 (1080p)
 	ProfileLevelBaseline42 ProfileLevel = "42002a" // Level 4.2 (2K)
-
+	
 	ProfileLevelMain21 ProfileLevel = "4D0015" // Level 2.1
 	ProfileLevelMain31 ProfileLevel = "4D001f" // Level 3.1
 	ProfileLevelMain41 ProfileLevel = "4D0029" // Level 4.1
 	ProfileLevelMain42 ProfileLevel = "4D002a" // Level 4.2
-
+	
 	ProfileLevelHigh21 ProfileLevel = "640015" // Level 2.1
 	ProfileLevelHigh31 ProfileLevel = "64001f" // Level 3.1
 	ProfileLevelHigh41 ProfileLevel = "640029" // Level 4.1
@@ -46,12 +46,14 @@ const (
 
 func WithH264MediaEngine(clockrate uint32, packetisationMode PacketisationMode, profileLevelID ProfileLevel, sps, pps string) ClientOption {
 	return func(client *Client) error {
+		// RTCPFeedback := []webrtc.RTCPFeedback{{Type: webrtc.TypeRTCPFBNACK, Parameter: ""}, {Type: webrtc.TypeRTCPFBNACK, Parameter: "pli"}, {Type: webrtc.TypeRTCPFBCCM, Parameter: "fir"}, {Type: webrtc.TypeRTCPFBGoogREMB, Parameter: ""}, {Type: webrtc.TypeRTCPFBTransportCC, Parameter: ""},}
 		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:    webrtc.MimeTypeH264,
-				ClockRate:   clockrate,
-				Channels:    0,
-				SDPFmtpLine: fmt.Sprintf("level-asymmetry-allowed=1;packetization-mode=%d;profile-level-id=%s;sprop-parameter-sets=%s,%s", packetisationMode, profileLevelID, sps, pps),
+				MimeType:     webrtc.MimeTypeH264,
+				ClockRate:    clockrate,
+				Channels:     0,
+				SDPFmtpLine:  fmt.Sprintf("level-asymmetry-allowed=1;packetization-mode=%d;profile-level-id=%s;sprop-parameter-sets=%s,%s", packetisationMode, profileLevelID, sps, pps),
+				RTCPFeedback: []webrtc.RTCPFeedback{},
 			},
 			PayloadType: 96,
 		}, webrtc.RTPCodecTypeVideo); err != nil {
@@ -134,11 +136,12 @@ func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions
 		if responder, err = nack.NewResponderInterceptor(responderOptions...); err != nil {
 			return err
 		}
-
-		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack"}, webrtc.RTPCodecTypeVideo)
+		
+		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBNACK}, webrtc.RTPCodecTypeVideo)
+		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBNACK, Parameter: "pli"}, webrtc.RTPCodecTypeVideo)
 		client.interceptorRegistry.Add(responder)
 		client.interceptorRegistry.Add(generator)
-
+		
 		return nil
 	}
 }
@@ -158,21 +161,21 @@ func WithTWCCSenderInterceptor(interval TWCCSenderInterval) ClientOption {
 			generator *twcc.SenderInterceptorFactory
 			err       error
 		)
-
+		
 		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBTransportCC}, webrtc.RTPCodecTypeVideo)
 		if err := client.mediaEngine.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: sdp.TransportCCURI}, webrtc.RTPCodecTypeVideo); err != nil {
 			return err
 		}
-
+		
 		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBTransportCC}, webrtc.RTPCodecTypeAudio)
 		if err := client.mediaEngine.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: sdp.TransportCCURI}, webrtc.RTPCodecTypeAudio); err != nil {
 			return err
 		}
-
+		
 		if generator, err = twcc.NewSenderInterceptor(twcc.SendInterval(time.Duration(interval))); err != nil {
 			return err
 		}
-
+		
 		client.interceptorRegistry.Add(generator)
 		return nil
 	}
@@ -185,7 +188,7 @@ func WithJitterBufferInterceptor() ClientOption {
 			jitterBuffer *jitterbuffer.InterceptorFactory
 			err          error
 		)
-
+		
 		if jitterBuffer, err = jitterbuffer.NewInterceptor(); err != nil {
 			return err
 		}
@@ -210,17 +213,17 @@ func WithRTCPReportsInterceptor(interval RTCPReportInterval) ClientOption {
 			receiver *report.ReceiverInterceptorFactory
 			err      error
 		)
-
+		
 		if sender, err = report.NewSenderInterceptor(report.SenderInterval(time.Duration(interval))); err != nil {
 			return err
 		}
 		if receiver, err = report.NewReceiverInterceptor(report.ReceiverInterval(time.Duration(interval))); err != nil {
 			return err
 		}
-
+		
 		client.interceptorRegistry.Add(receiver)
 		client.interceptorRegistry.Add(sender)
-
+		
 		return nil
 	}
 }
@@ -232,12 +235,12 @@ func WithFLEXFECInterceptor() ClientOption {
 			fecInterceptor *flexfec.FecInterceptorFactory
 			err            error
 		)
-
+		
 		// NOTE: Pion's FLEXFEC does not implement FecOption yet, if needed, someone needs to contribute to the repo
 		if fecInterceptor, err = flexfec.NewFecInterceptor(); err != nil {
 			return err
 		}
-
+		
 		client.interceptorRegistry.Add(fecInterceptor)
 		return nil
 	}
@@ -257,18 +260,20 @@ func WithBandwidthControlInterceptor(initialBitrate int, interval time.Duration)
 		if err != nil {
 			return err
 		}
-
+		
 		congestionController.OnNewPeerConnection(func(id string, estimator cc.BandwidthEstimator) {
 			fmt.Println("sending estimator")
 			client.estimatorChan <- estimator
 			fmt.Println("send estimator")
 		})
-
+		
 		client.interceptorRegistry.Add(congestionController)
 		if err := webrtc.ConfigureTWCCHeaderExtensionSender(client.mediaEngine, client.interceptorRegistry); err != nil {
 			return err
 		}
-
+		
+		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBGoogREMB}, webrtc.RTPCodecTypeVideo)
+		
 		return nil
 	}
 }
