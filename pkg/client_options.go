@@ -84,8 +84,8 @@ func WithDefaultInterceptorRegistry() ClientOption {
 type StereoType uint8
 
 const (
-	Mono   StereoType = 0
-	Stereo StereoType = 1
+	Mono StereoType = 0
+	Dual StereoType = 1
 )
 
 func WithOpusMediaEngine(samplerate uint32, channelLayout uint16, stereo StereoType) ClientOption {

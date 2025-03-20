@@ -68,7 +68,7 @@ func (pc *PeerConnection) onTrack() *PeerConnection {
 		fmt.Println("no sink pre-set for ID:", remote.ID())
 		fmt.Println("creating a temporary sink...")
 
-		sink, err := pc.sinks.CreateSink(remote.ID(), mediasink.WithRTSPHost(8554, remote.ID(), rtsp.WithH264OptionsFromRemote(remote)))
+		sink, err := pc.sinks.CreateSink(remote.ID(), mediasink.WithRTSPHost(8554, remote.ID(), rtsp.WithOptionsFromRemote(remote)))
 		if err != nil {
 			fmt.Println("failed to create sink:", err)
 		} else {
