@@ -7,7 +7,6 @@ require (
 	firebase.google.com/go v3.13.0+incompatible
 	github.com/harshabose/simple_webrtc_comm/datachannel v0.0.0
 	github.com/harshabose/simple_webrtc_comm/mediasink v0.0.0
-	github.com/harshabose/simple_webrtc_comm/mediasource v0.0.0
 	github.com/pion/interceptor v0.1.37
 	github.com/pion/webrtc/v4 v4.0.10
 	google.golang.org/api v0.222.0
@@ -34,7 +33,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
-	github.com/harshabose/simple_webrtc_comm/transcode v0.0.0 // indirect
 	github.com/harshabose/tools/buffer v0.0.0 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v3 v3.0.4 // indirect
@@ -74,7 +72,5 @@ require (
 replace (
 	github.com/harshabose/simple_webrtc_comm/datachannel => ../datachannel
 	github.com/harshabose/simple_webrtc_comm/mediasink => ../mediasink
-	github.com/harshabose/simple_webrtc_comm/mediasource => ../mediasource
-	github.com/harshabose/simple_webrtc_comm/transcode => ../transcode
 	github.com/harshabose/tools/buffer => ../tools/buffer
 )

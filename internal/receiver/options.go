@@ -1,11 +1,11 @@
-package client
+package receiver
 
 import (
+	data "github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
+	mediasink "github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
 	"github.com/pion/webrtc/v4"
 
-	"github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
-	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
-	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
+	"github.com/harshabose/simple_webrtc_comm/client/internal"
 )
 
 type PeerConnectionOption = func(*PeerConnection) error
@@ -18,25 +18,13 @@ func WithRTCConfiguration(config *webrtc.Configuration) PeerConnectionOption {
 }
 
 func WithOfferSignal(connection *PeerConnection) error {
-	connection.signal = CreateOfferSignal(connection.ctx, connection)
+	connection.signal = internal.CreateOfferSignal(connection.ctx, connection)
 	return nil
 }
 
 func WithAnswerSignal(connection *PeerConnection) error {
-	connection.signal = CreateAnswerSignal(connection.ctx, connection)
+	connection.signal = internal.CreateAnswerSignal(connection.ctx, connection)
 	return nil
-}
-
-func WithMediaSources(options ...mediasource.TracksOption) PeerConnectionOption {
-	return func(pc *PeerConnection) error {
-		var err error
-
-		if pc.tracks, err = mediasource.CreateTracks(pc.ctx, options...); err != nil {
-			return err
-		}
-
-		return nil
-	}
 }
 
 func WithMediaSinks(options ...mediasink.SinksOptions) PeerConnectionOption {
@@ -58,13 +46,6 @@ func WithDataChannels() PeerConnectionOption {
 			return err
 		}
 
-		return nil
-	}
-}
-
-func WithBandwidthControl() PeerConnectionOption {
-	return func(connection *PeerConnection) error {
-		connection.bwController = createBWController(connection.ctx)
 		return nil
 	}
 }

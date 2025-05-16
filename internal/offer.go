@@ -1,4 +1,4 @@
-package client
+package internal
 
 import (
 	"context"
@@ -15,14 +15,14 @@ import (
 )
 
 type OfferSignal struct {
-	peerConnection *PeerConnection
+	peerConnection PeerConnection
 	app            *firebase.App
 	firebaseClient *firestore.Client
 	docRef         *firestore.DocumentRef
 	ctx            context.Context
 }
 
-func CreateOfferSignal(ctx context.Context, peerConnection *PeerConnection) *OfferSignal {
+func CreateOfferSignal(ctx context.Context, peerConnection PeerConnection) *OfferSignal {
 	var (
 		configuration  option.ClientOption
 		app            *firebase.App
@@ -62,13 +62,12 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 			return err
 		}
 	}
-
-	offer, err := signal.peerConnection.peerConnection.CreateOffer(nil)
+	offer, err := signal.peerConnection.GetPeerConnection().CreateOffer(nil)
 	if err != nil {
 		return fmt.Errorf("error while creating offer: %w", err)
 	}
 
-	if err := signal.peerConnection.peerConnection.SetLocalDescription(offer); err != nil {
+	if err := signal.peerConnection.GetPeerConnection().SetLocalDescription(offer); err != nil {
 		return fmt.Errorf("error while setting local sdp: %w", err)
 	}
 
@@ -76,7 +75,7 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 	defer timer.Stop()
 
 	select {
-	case <-webrtc.GatheringCompletePromise(signal.peerConnection.peerConnection):
+	case <-webrtc.GatheringCompletePromise(signal.peerConnection.GetPeerConnection()):
 		fmt.Println("ICE Gathering complete")
 	case <-timer.C:
 		return errors.New("failed to gather ICE candidates within 30 seconds")
@@ -85,7 +84,7 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 	if _, err = signal.docRef.Set(signal.ctx, map[string]interface{}{
 		FieldOffer: map[string]interface{}{
 			FieldCreatedAt: firestore.ServerTimestamp,
-			FieldSDP:       signal.peerConnection.peerConnection.LocalDescription().SDP,
+			FieldSDP:       signal.peerConnection.GetPeerConnection().LocalDescription().SDP,
 			FieldUpdatedAt: firestore.ServerTimestamp,
 		},
 		FieldStatus: FieldStatusPending,
@@ -123,7 +122,7 @@ loop:
 			if !ok {
 				continue loop
 			}
-			if err = signal.peerConnection.peerConnection.SetRemoteDescription(webrtc.SessionDescription{
+			if err = signal.peerConnection.GetPeerConnection().SetRemoteDescription(webrtc.SessionDescription{
 				Type: webrtc.SDPTypeAnswer,
 				SDP:  sdp,
 			}); err != nil {

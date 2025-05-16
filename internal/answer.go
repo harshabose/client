@@ -1,4 +1,4 @@
-package client
+package internal
 
 import (
 	"context"
@@ -8,22 +8,21 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"firebase.google.com/go"
+	"github.com/pion/webrtc/v4"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/pion/webrtc/v4"
 )
 
 type AnswerSignal struct {
-	peerConnection *PeerConnection
+	peerConnection PeerConnection
 	app            *firebase.App
 	client         *firestore.Client
 	docRef         *firestore.DocumentRef
 	ctx            context.Context
 }
 
-func CreateAnswerSignal(ctx context.Context, peerConnection *PeerConnection) *AnswerSignal {
+func CreateAnswerSignal(ctx context.Context, peerConnection PeerConnection) *AnswerSignal {
 	var (
 		configuration option.ClientOption
 		app           *firebase.App
@@ -42,9 +41,10 @@ func CreateAnswerSignal(ctx context.Context, peerConnection *PeerConnection) *An
 	}
 
 	return &AnswerSignal{
+		peerConnection: peerConnection,
 		app:            app,
 		client:         client,
-		peerConnection: peerConnection,
+		docRef:         nil,
 		ctx:            ctx,
 	}
 }
@@ -86,19 +86,19 @@ func (signal *AnswerSignal) answer(offer map[string]interface{}) error {
 		return fmt.Errorf("invalid SDP format in offer")
 	}
 
-	if err := signal.peerConnection.peerConnection.SetRemoteDescription(webrtc.SessionDescription{
+	if err := signal.peerConnection.GetPeerConnection().SetRemoteDescription(webrtc.SessionDescription{
 		Type: webrtc.SDPTypeOffer,
 		SDP:  sdp,
 	}); err != nil {
 		return err
 	}
 
-	answer, err := signal.peerConnection.peerConnection.CreateAnswer(nil)
+	answer, err := signal.peerConnection.GetPeerConnection().CreateAnswer(nil)
 	if err != nil {
 		return fmt.Errorf("error while creating answer: %w", err)
 	}
 
-	if err := signal.peerConnection.peerConnection.SetLocalDescription(answer); err != nil {
+	if err := signal.peerConnection.GetPeerConnection().SetLocalDescription(answer); err != nil {
 		return fmt.Errorf("error while setting local sdp: %w", err)
 	}
 
@@ -106,7 +106,7 @@ func (signal *AnswerSignal) answer(offer map[string]interface{}) error {
 	defer timer.Stop()
 
 	select {
-	case <-webrtc.GatheringCompletePromise(signal.peerConnection.peerConnection):
+	case <-webrtc.GatheringCompletePromise(signal.peerConnection.GetPeerConnection()):
 		fmt.Println("ICE Gathering complete")
 	case <-timer.C:
 		return errors.New("failed to gather ICE candidates within 30 seconds")
@@ -114,7 +114,7 @@ func (signal *AnswerSignal) answer(offer map[string]interface{}) error {
 
 	if _, err = signal.docRef.Set(signal.ctx, map[string]interface{}{
 		FieldAnswer: map[string]interface{}{
-			FieldSDP:       signal.peerConnection.peerConnection.LocalDescription().SDP,
+			FieldSDP:       signal.peerConnection.GetPeerConnection().LocalDescription().SDP,
 			FieldUpdatedAt: firestore.ServerTimestamp,
 		},
 		FieldStatus: FieldStatusConnected,
