@@ -20,6 +20,11 @@ type ClientOption = func(*Client) error
 type PacketisationMode uint8
 
 const (
+	H264PayloadType    webrtc.PayloadType = 120
+	H264RTXPayloadType webrtc.PayloadType = 121
+)
+
+const (
 	PacketisationMode0 PacketisationMode = 0
 	PacketisationMode1 PacketisationMode = 1
 	PacketisationMode2 PacketisationMode = 2
@@ -46,19 +51,33 @@ const (
 
 func WithH264MediaEngine(clockrate uint32, packetisationMode PacketisationMode, profileLevelID ProfileLevel, sps, pps string) ClientOption {
 	return func(client *Client) error {
-		// RTCPFeedback := []webrtc.RTCPFeedback{{Type: webrtc.TypeRTCPFBNACK, Parameter: ""}, {Type: webrtc.TypeRTCPFBNACK, Parameter: "pli"}, {Type: webrtc.TypeRTCPFBCCM, Parameter: "fir"}, {Type: webrtc.TypeRTCPFBGoogREMB, Parameter: ""}, {Type: webrtc.TypeRTCPFBTransportCC, Parameter: ""},}
+		RTCPFeedback := []webrtc.RTCPFeedback{{Type: webrtc.TypeRTCPFBGoogREMB}, {Type: webrtc.TypeRTCPFBCCM, Parameter: "fir"}, {Type: webrtc.TypeRTCPFBNACK}, {Type: webrtc.TypeRTCPFBNACK, Parameter: "pli"}}
 		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
 				MimeType:     webrtc.MimeTypeH264,
 				ClockRate:    clockrate,
 				Channels:     0,
 				SDPFmtpLine:  fmt.Sprintf("level-asymmetry-allowed=1;packetization-mode=%d;profile-level-id=%s;sprop-parameter-sets=%s,%s", packetisationMode, profileLevelID, sps, pps),
-				RTCPFeedback: []webrtc.RTCPFeedback{},
+				RTCPFeedback: RTCPFeedback,
 			},
-			PayloadType: 96,
+			PayloadType: H264PayloadType,
 		}, webrtc.RTPCodecTypeVideo); err != nil {
 			return err
 		}
+
+		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+			RTPCodecCapability: webrtc.RTPCodecCapability{
+				MimeType:     webrtc.MimeTypeRTX,
+				ClockRate:    clockrate,
+				Channels:     0,
+				SDPFmtpLine:  fmt.Sprintf("apt=%d", H264PayloadType),
+				RTCPFeedback: nil,
+			},
+			PayloadType: H264RTXPayloadType,
+		}, webrtc.RTPCodecTypeVideo); err != nil {
+			return err
+		}
+
 		return nil
 	}
 }
@@ -272,7 +291,7 @@ func WithBandwidthControlInterceptor(initialBitrate int, interval time.Duration)
 			return err
 		}
 
-		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBGoogREMB}, webrtc.RTPCodecTypeVideo)
+		// client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBGoogREMB}, webrtc.RTPCodecTypeVideo)
 
 		return nil
 	}

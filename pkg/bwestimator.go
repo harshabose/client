@@ -37,13 +37,14 @@ func (bwc *bwController) Start() {
 func (bwc *bwController) Subscribe(track *mediasource.Track) error {
 	channel := make(chan int64)
 
+	if _, exists := bwc.subs[track]; exists {
+		return errors.New("bwc track subscriber already exists")
+	}
+
 	if err := mediasource.WithBitrateControl(channel)(track); err != nil {
 		return err
 	}
 
-	if _, exists := bwc.subs[track]; exists {
-		return errors.New("bwc track subscriber already exists")
-	}
 	bwc.subs[track] = channel
 	fmt.Println("new subscriber added with label:", track.GetTrack().ID())
 

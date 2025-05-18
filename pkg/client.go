@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/pion/interceptor"
@@ -62,8 +63,12 @@ func (client *Client) CreatePeerConnection(label string, options ...PeerConnecti
 	// TODO: THIS WEIRD CHANNEL BASED APPROACH OF SETTING BW CONTROLLER IS REQUIRED BECAUSE OF THE
 	// TODO: THE WEIRD DESIGN OF CC INTERCEPTOR IN PION. TRACK THE ISSUE WITH "https://github.com/pion/webrtc/issues/3053"
 	if client.peerConnections[label].bwController != nil {
-		client.peerConnections[label].bwController.estimator = <-client.estimatorChan
-		client.peerConnections[label].bwController.interval = 50 * time.Millisecond
+		select {
+		case estimator := <-client.estimatorChan:
+			fmt.Printf("successfully set bwe estimator for %s peer connection\n", label)
+			client.peerConnections[label].bwController.estimator = estimator
+			client.peerConnections[label].bwController.interval = 50 * time.Millisecond
+		}
 	}
 
 	return client.peerConnections[label], nil
