@@ -20,8 +20,8 @@ type ClientOption = func(*Client) error
 type PacketisationMode uint8
 
 const (
-	H264PayloadType    webrtc.PayloadType = 120
-	H264RTXPayloadType webrtc.PayloadType = 121
+	H264PayloadType    webrtc.PayloadType = 102
+	H264RTXPayloadType webrtc.PayloadType = 103
 )
 
 const (
@@ -149,10 +149,10 @@ func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions
 			responder *nack.ResponderInterceptorFactory
 			err       error
 		)
-		if generator, err = nack.NewGeneratorInterceptor(generatorOptions...); err != nil {
+		if generator, err = nack.NewGeneratorInterceptor(); err != nil {
 			return err
 		}
-		if responder, err = nack.NewResponderInterceptor(responderOptions...); err != nil {
+		if responder, err = nack.NewResponderInterceptor(); err != nil {
 			return err
 		}
 
@@ -168,7 +168,7 @@ func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions
 type TWCCSenderInterval time.Duration
 
 const (
-	TWCCIntervalLowLatency   = TWCCSenderInterval(20 * time.Millisecond)
+	TWCCIntervalLowLatency   = TWCCSenderInterval(100 * time.Millisecond)
 	TWCCIntervalDefault      = TWCCSenderInterval(100 * time.Millisecond)
 	TWCCIntervalHighQuality  = TWCCSenderInterval(200 * time.Millisecond)
 	TWCCIntervalLowBandwidth = TWCCSenderInterval(500 * time.Millisecond)
@@ -227,16 +227,12 @@ const (
 
 func WithRTCPReportsInterceptor(interval RTCPReportInterval) ClientOption {
 	return func(client *Client) error {
-		var (
-			sender   *report.SenderInterceptorFactory
-			receiver *report.ReceiverInterceptorFactory
-			err      error
-		)
-
-		if sender, err = report.NewSenderInterceptor(report.SenderInterval(time.Duration(interval))); err != nil {
+		sender, err := report.NewSenderInterceptor()
+		if err != nil {
 			return err
 		}
-		if receiver, err = report.NewReceiverInterceptor(report.ReceiverInterval(time.Duration(interval))); err != nil {
+		receiver, err := report.NewReceiverInterceptor()
+		if err != nil {
 			return err
 		}
 
@@ -274,7 +270,7 @@ func WithSimulcastExtensionHeaders() ClientOption {
 func WithBandwidthControlInterceptor(initialBitrate int, interval time.Duration) ClientOption {
 	return func(client *Client) error {
 		congestionController, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
-			return gcc.NewSendSideBWE(gcc.SendSideBWEInitialBitrate(initialBitrate), gcc.SendSideBWEPacer(gcc.NewLeakyBucketPacer(initialBitrate)), gcc.SendSideBWEMaxBitrate(2*initialBitrate), gcc.SendSideBWEMinBitrate(initialBitrate/2))
+			return gcc.NewSendSideBWE(gcc.SendSideBWEInitialBitrate(initialBitrate), gcc.SendSideBWEMaxBitrate(initialBitrate*2))
 		})
 		if err != nil {
 			return err
