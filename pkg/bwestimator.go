@@ -110,6 +110,7 @@ func (bwc *bwController) getBitrate() (int, error) {
 	// Wait for either the result or timeout
 	select {
 	case bitrate := <-resultCh:
+		bitrate = bitrate / 1000
 		return bitrate, nil
 	case <-ctx.Done():
 		return 0, ctx.Err()

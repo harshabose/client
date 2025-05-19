@@ -287,12 +287,16 @@ func WithBandwidthControlInterceptor(initialBitrate int, interval time.Duration)
 		})
 
 		client.interceptorRegistry.Add(congestionController)
-		if err := webrtc.ConfigureTWCCHeaderExtensionSender(client.mediaEngine, client.interceptorRegistry); err != nil {
-			return err
-		}
 
+		// TODO: NOT SURE IF I NEED THE FOLLOWING
 		// client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBGoogREMB}, webrtc.RTPCodecTypeVideo)
 
 		return nil
+	}
+}
+
+func WithTWCCHeaderExtensionSender() ClientOption {
+	return func(client *Client) error {
+		return webrtc.ConfigureTWCCHeaderExtensionSender(client.mediaEngine, client.interceptorRegistry)
 	}
 }
