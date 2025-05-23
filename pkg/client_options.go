@@ -22,6 +22,8 @@ type PacketisationMode uint8
 const (
 	H264PayloadType    webrtc.PayloadType = 102
 	H264RTXPayloadType webrtc.PayloadType = 103
+	VP8PayloadType     webrtc.PayloadType = 96
+	VP8RTXPayloadType  webrtc.PayloadType = 97
 )
 
 const (
@@ -78,6 +80,41 @@ func WithH264MediaEngine(clockrate uint32, packetisationMode PacketisationMode, 
 			return err
 		}
 
+		return nil
+	}
+}
+
+func WithVP8MediaEngine(clockrate uint32) ClientOption {
+	return func(client *Client) error {
+		fmt.Println("setting up VP8 media codec in media engine ..")
+		fmt.Println("setting up VP8 media codec in media engine with REMB, CCM, NACK AND NACK-PLI RTCP feedback ...")
+		RTCPFeedback := []webrtc.RTCPFeedback{{Type: webrtc.TypeRTCPFBGoogREMB}, {Type: webrtc.TypeRTCPFBCCM, Parameter: "fir"}, {Type: webrtc.TypeRTCPFBNACK}, {Type: webrtc.TypeRTCPFBNACK, Parameter: "pli"}}
+		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+			RTPCodecCapability: webrtc.RTPCodecCapability{
+				MimeType:     webrtc.MimeTypeVP8,
+				ClockRate:    clockrate,
+				RTCPFeedback: RTCPFeedback,
+				SDPFmtpLine:  fmt.Sprintf(""),
+			},
+			PayloadType: VP8PayloadType,
+		}, webrtc.RTPCodecTypeVideo); err != nil {
+			return err
+		}
+
+		fmt.Println("setting up VP8 media codec RTX in media engine ...")
+		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
+			RTPCodecCapability: webrtc.RTPCodecCapability{
+				MimeType:     webrtc.MimeTypeRTX,
+				ClockRate:    clockrate,
+				RTCPFeedback: nil,
+				SDPFmtpLine:  fmt.Sprintf("apt=%d", VP8PayloadType),
+			},
+			PayloadType: VP8RTXPayloadType,
+		}, webrtc.RTPCodecTypeVideo); err != nil {
+			return err
+		}
+
+		fmt.Println("... done setting VP8 media codec in media enginer")
 		return nil
 	}
 }
@@ -144,15 +181,12 @@ var (
 
 func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions NACKResponderOptions) ClientOption {
 	return func(client *Client) error {
-		var (
-			generator *nack.GeneratorInterceptorFactory
-			responder *nack.ResponderInterceptorFactory
-			err       error
-		)
-		if generator, err = nack.NewGeneratorInterceptor(); err != nil {
+		generator, err := nack.NewGeneratorInterceptor()
+		if err != nil {
 			return err
 		}
-		if responder, err = nack.NewResponderInterceptor(); err != nil {
+		responder, err := nack.NewResponderInterceptor()
+		if err != nil {
 			return err
 		}
 
@@ -176,11 +210,6 @@ const (
 
 func WithTWCCSenderInterceptor(interval TWCCSenderInterval) ClientOption {
 	return func(client *Client) error {
-		var (
-			generator *twcc.SenderInterceptorFactory
-			err       error
-		)
-
 		client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBTransportCC}, webrtc.RTPCodecTypeVideo)
 		if err := client.mediaEngine.RegisterHeaderExtension(webrtc.RTPHeaderExtensionCapability{URI: sdp.TransportCCURI}, webrtc.RTPCodecTypeVideo); err != nil {
 			return err
@@ -191,7 +220,8 @@ func WithTWCCSenderInterceptor(interval TWCCSenderInterval) ClientOption {
 			return err
 		}
 
-		if generator, err = twcc.NewSenderInterceptor(); err != nil {
+		generator, err := twcc.NewSenderInterceptor()
+		if err != nil {
 			return err
 		}
 
@@ -227,11 +257,11 @@ const (
 
 func WithRTCPReportsInterceptor(interval RTCPReportInterval) ClientOption {
 	return func(client *Client) error {
-		sender, err := report.NewSenderInterceptor()
+		receiver, err := report.NewReceiverInterceptor()
 		if err != nil {
 			return err
 		}
-		receiver, err := report.NewReceiverInterceptor()
+		sender, err := report.NewSenderInterceptor()
 		if err != nil {
 			return err
 		}
@@ -270,7 +300,7 @@ func WithSimulcastExtensionHeaders() ClientOption {
 func WithBandwidthControlInterceptor(initialBitrate int, interval time.Duration) ClientOption {
 	return func(client *Client) error {
 		congestionController, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
-			return gcc.NewSendSideBWE(gcc.SendSideBWEInitialBitrate(initialBitrate), gcc.SendSideBWEMaxBitrate(initialBitrate*2))
+			return gcc.NewSendSideBWE(gcc.SendSideBWEInitialBitrate(initialBitrate))
 		})
 		if err != nil {
 			return err
@@ -283,9 +313,6 @@ func WithBandwidthControlInterceptor(initialBitrate int, interval time.Duration)
 		})
 
 		client.interceptorRegistry.Add(congestionController)
-
-		// TODO: NOT SURE IF I NEED THE FOLLOWING
-		// client.mediaEngine.RegisterFeedback(webrtc.RTCPFeedback{Type: webrtc.TypeRTCPFBGoogREMB}, webrtc.RTPCodecTypeVideo)
 
 		return nil
 	}

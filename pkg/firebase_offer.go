@@ -22,7 +22,7 @@ type OfferSignal struct {
 	ctx            context.Context
 }
 
-func CreateOfferSignal(ctx context.Context, peerConnection *PeerConnection) *OfferSignal {
+func CreateFirebaseOfferSignal(ctx context.Context, peerConnection *PeerConnection) *OfferSignal {
 	var (
 		configuration  option.ClientOption
 		app            *firebase.App

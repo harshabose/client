@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/pion/interceptor/pkg/cc"
 	"github.com/pion/webrtc/v4"
 
 	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
@@ -51,6 +52,22 @@ func CreatePeerConnection(ctx context.Context, cancel context.CancelFunc, label 
 
 func (pc *PeerConnection) GetLabel() string {
 	return pc.label
+}
+
+func (pc *PeerConnection) GetPeerConnection() (*webrtc.PeerConnection, error) {
+	if pc.peerConnection == nil {
+		return nil, errors.New("raw peer connection is nil")
+	}
+
+	return pc.peerConnection, nil
+}
+
+func (pc *PeerConnection) GetBWEstimator() (cc.BandwidthEstimator, error) {
+	if pc.bwController == nil || pc.bwController.estimator == nil {
+		return nil, errors.New("estimator is nil")
+	}
+
+	return pc.bwController.estimator, nil
 }
 
 func (pc *PeerConnection) onTrack() *PeerConnection {
@@ -139,22 +156,22 @@ func (pc *PeerConnection) CreateDataChannel(label string, options ...data.LoopBa
 	return pc.dataChannels.CreateDataChannel(label, pc.peerConnection, options...)
 }
 
-func (pc *PeerConnection) CreateMediaSource(label string, withBWController bool, options ...mediasource.TrackOption) error {
+func (pc *PeerConnection) CreateMediaSource(label string, withBWController bool, options ...mediasource.TrackOption) (*mediasource.Track, error) {
 	if pc.tracks == nil {
-		return errors.New("media source are not enabled")
+		return nil, errors.New("media source are not enabled")
 	}
 
 	track, err := pc.tracks.CreateTrack(label, pc.peerConnection, options...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if pc.bwController != nil && pc.bwController.estimator != nil && withBWController {
 		fmt.Printf("subscribing media source with label '%s' to bw estimator\n", label)
-		return pc.bwController.Subscribe(track)
+		return nil, pc.bwController.Subscribe(track)
 	}
 
-	return nil
+	return track, nil
 }
 
 func (pc *PeerConnection) CreateMediaSink(label string, options ...mediasink.StreamOption) error {

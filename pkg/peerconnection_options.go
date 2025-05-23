@@ -17,14 +17,28 @@ func WithRTCConfiguration(config *webrtc.Configuration) PeerConnectionOption {
 	}
 }
 
-func WithOfferSignal(connection *PeerConnection) error {
-	connection.signal = CreateOfferSignal(connection.ctx, connection)
+func WithFirebaseOfferSignal(connection *PeerConnection) error {
+	connection.signal = CreateFirebaseOfferSignal(connection.ctx, connection)
 	return nil
 }
 
-func WithAnswerSignal(connection *PeerConnection) error {
-	connection.signal = CreateAnswerSignal(connection.ctx, connection)
+func WithFirebaseAnswerSignal(connection *PeerConnection) error {
+	connection.signal = CreateFirebaseAnswerSignal(connection.ctx, connection)
 	return nil
+}
+
+func WithFileOfferSignal(offerPath, answerPath string) PeerConnectionOption {
+	return func(connection *PeerConnection) error {
+		connection.signal = CreateFileOfferSignal(connection.ctx, connection, offerPath, answerPath)
+		return nil
+	}
+}
+
+func WithFileAnswerSignal(offerPath, answerPath string) PeerConnectionOption {
+	return func(connection *PeerConnection) error {
+		connection.signal = CreateFileAnswerSignal(connection.ctx, connection, offerPath, answerPath)
+		return nil
+	}
 }
 
 func WithMediaSources(options ...mediasource.TracksOption) PeerConnectionOption {

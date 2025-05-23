@@ -22,10 +22,13 @@ type Client struct {
 }
 
 func CreateClient(ctx context.Context, cancel context.CancelFunc, mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry, options ...ClientOption) (*Client, error) {
+	fmt.Println("creating client ...")
 	if mediaEngine == nil {
+		fmt.Println("\t\t with provided media engine...")
 		mediaEngine = &webrtc.MediaEngine{}
 	}
 	if interceptorRegistry == nil {
+		fmt.Println("\t\t with provided interceptor registry...")
 		interceptorRegistry = &interceptor.Registry{}
 	}
 
@@ -39,13 +42,16 @@ func CreateClient(ctx context.Context, cancel context.CancelFunc, mediaEngine *w
 	}
 
 	for _, option := range options {
+		fmt.Println("applying option to client...")
 		if err := option(peerConnections); err != nil {
 			return nil, err
 		}
 	}
 
+	fmt.Println("creating webrtc api instance for the client...")
 	peerConnections.api = webrtc.NewAPI(webrtc.WithMediaEngine(peerConnections.mediaEngine), webrtc.WithInterceptorRegistry(peerConnections.interceptorRegistry))
 
+	fmt.Println("... created client instance")
 	return peerConnections, nil
 }
 
@@ -67,7 +73,7 @@ func (client *Client) CreatePeerConnection(label string, options ...PeerConnecti
 		case estimator := <-client.estimatorChan:
 			fmt.Printf("successfully set bwe estimator for %s peer connection\n", label)
 			client.peerConnections[label].bwController.estimator = estimator
-			client.peerConnections[label].bwController.interval = 33 * time.Millisecond
+			client.peerConnections[label].bwController.interval = 1 * time.Second
 		}
 	}
 
@@ -83,6 +89,15 @@ func (client *Client) GetPeerConnection(label string) (*PeerConnection, error) {
 
 func (client *Client) WaitUntilClosed() {
 	<-client.ctx.Done()
+}
+
+func (client *Client) ClosePeerConnection(label string) error {
+	pc, err := client.GetPeerConnection(label)
+	if err != nil {
+		return err
+	}
+
+	return pc.Close()
 }
 
 func (client *Client) Close() error {

@@ -23,7 +23,7 @@ type AnswerSignal struct {
 	ctx            context.Context
 }
 
-func CreateAnswerSignal(ctx context.Context, peerConnection *PeerConnection) *AnswerSignal {
+func CreateFirebaseAnswerSignal(ctx context.Context, peerConnection *PeerConnection) *AnswerSignal {
 	var (
 		configuration option.ClientOption
 		app           *firebase.App
