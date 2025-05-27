@@ -111,7 +111,7 @@ func (signal *FileOfferSignal) waitForAnswer() error {
 					continue
 				}
 
-				// Set remote description
+				// SetInputOption remote description
 				if err = signal.peerConnection.peerConnection.SetRemoteDescription(answer); err != nil {
 					return fmt.Errorf("error setting remote description: %w", err)
 				}

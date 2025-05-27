@@ -73,7 +73,7 @@ func (client *Client) CreatePeerConnection(label string, options ...PeerConnecti
 		case estimator := <-client.estimatorChan:
 			fmt.Printf("successfully set bwe estimator for %s peer connection\n", label)
 			client.peerConnections[label].bwController.estimator = estimator
-			client.peerConnections[label].bwController.interval = 1 * time.Second
+			client.peerConnections[label].bwController.interval = 5 * time.Second
 		}
 	}
 

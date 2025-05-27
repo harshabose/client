@@ -90,7 +90,7 @@ func (signal *FileAnswerSignal) waitForOffer() (webrtc.SessionDescription, error
 
 // processOffer processes the offer and creates an answer
 func (signal *FileAnswerSignal) processOffer(offer webrtc.SessionDescription) error {
-	// Set remote description
+	// SetInputOption remote description
 	if err := signal.peerConnection.peerConnection.SetRemoteDescription(offer); err != nil {
 		return fmt.Errorf("error setting remote description: %w", err)
 	}
@@ -101,7 +101,7 @@ func (signal *FileAnswerSignal) processOffer(offer webrtc.SessionDescription) er
 		return fmt.Errorf("error creating answer: %w", err)
 	}
 
-	// Set local description
+	// SetInputOption local description
 	if err := signal.peerConnection.peerConnection.SetLocalDescription(answer); err != nil {
 		return fmt.Errorf("error setting local description: %w", err)
 	}

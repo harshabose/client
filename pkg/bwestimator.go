@@ -9,18 +9,19 @@ import (
 	"github.com/pion/interceptor/pkg/cc"
 
 	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
+	"github.com/harshabose/simple_webrtc_comm/transcode/pkg"
 )
 
 type bwController struct {
 	estimator cc.BandwidthEstimator
 	interval  time.Duration
-	subs      map[*mediasource.Track]chan int64
+	subs      map[*mediasource.Track]transcode.UpdateBitrateCallBack
 	ctx       context.Context
 }
 
 func createBWController(ctx context.Context) *bwController {
 	return &bwController{
-		subs:      make(map[*mediasource.Track]chan int64),
+		subs:      make(map[*mediasource.Track]transcode.UpdateBitrateCallBack),
 		estimator: nil,
 		ctx:       ctx,
 	}
@@ -35,17 +36,16 @@ func (bwc *bwController) Start() {
 }
 
 func (bwc *bwController) Subscribe(track *mediasource.Track) error {
-	channel := make(chan int64)
-
 	if _, exists := bwc.subs[track]; exists {
 		return errors.New("bwc track subscriber already exists")
 	}
 
-	if err := mediasource.WithBitrateControl(channel)(track); err != nil {
+	canGetUpdateBitrateCallBack, err := mediasource.WithBitrateControl(track)
+	if err != nil {
 		return err
 	}
 
-	bwc.subs[track] = channel
+	bwc.subs[track] = canGetUpdateBitrateCallBack.OnUpdateBitrate()
 	fmt.Println("new subscriber added with label:", track.GetTrack().ID())
 
 	return nil
@@ -74,46 +74,39 @@ func (bwc *bwController) loop() {
 				continue
 			}
 
-			for track, channel := range bwc.subs {
+			for track, callBack := range bwc.subs {
 				if track.GetPriority() == mediasource.Level0 {
 					continue
 				}
 				bitrate := int64(float64(totalBitrate) * float64(track.GetPriority()) / float64(totalPriority))
-				bwc.send(channel, bitrate/1000)
+				go bwc.send(callBack, bitrate)
 			}
 		}
 	}
 }
 
-func (bwc *bwController) send(channel chan int64, bitrate int64) {
-	_, cancel := context.WithTimeout(bwc.ctx, bwc.interval/time.Duration(len(bwc.subs)))
+func (bwc *bwController) send(callBack transcode.UpdateBitrateCallBack, bitrate int64) {
+	ctx, cancel := context.WithTimeout(bwc.ctx, bwc.interval/time.Duration(len(bwc.subs)))
 	defer cancel()
 
+	done := make(chan error, 1)
+	go func() {
+		done <- callBack(bitrate)
+	}()
+
 	select {
-	// case <-ctx.Done():
-	// 	return
-	case channel <- bitrate:
+	case err := <-done:
+		if err != nil {
+			fmt.Printf("bitrate update callback failed: %v\n", err)
+		}
+	case <-ctx.Done():
+		fmt.Println("context expired for bitrate update callback...")
 	}
 }
 
 func (bwc *bwController) getBitrate() (int, error) {
-	// ctx, cancel := context.WithTimeout(bwc.ctx, bwc.interval)
-	// defer cancel()
-	//
-	// resultCh := make(chan int, 1)
-	//
-	// // Run GetTargetBitrate in a separate goroutine
-	// go func() {
-	// 	resultCh <- bwc.estimator.GetTargetBitrate()
-	// }()
-	//
-	// // Wait for either the result or timeout
-	// select {
-	// case bitrate := <-resultCh:
-	// 	bitrate = bitrate / 1000
-	// 	return bitrate, nil
-	// case <-ctx.Done():
-	// 	return 0, ctx.Err()
-	// }
+	if bwc.estimator == nil {
+		return 0, errors.New("estimator is nil")
+	}
 	return bwc.estimator.GetTargetBitrate(), nil
 }
