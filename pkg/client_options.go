@@ -202,7 +202,7 @@ func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions
 type TWCCSenderInterval time.Duration
 
 const (
-	TWCCIntervalLowLatency   = TWCCSenderInterval(100 * time.Millisecond)
+	TWCCIntervalLowLatency   = TWCCSenderInterval(200 * time.Millisecond)
 	TWCCIntervalDefault      = TWCCSenderInterval(100 * time.Millisecond)
 	TWCCIntervalHighQuality  = TWCCSenderInterval(200 * time.Millisecond)
 	TWCCIntervalLowBandwidth = TWCCSenderInterval(500 * time.Millisecond)
@@ -220,7 +220,7 @@ func WithTWCCSenderInterceptor(interval TWCCSenderInterval) ClientOption {
 			return err
 		}
 
-		generator, err := twcc.NewSenderInterceptor()
+		generator, err := twcc.NewSenderInterceptor(twcc.SendInterval(time.Duration(interval)))
 		if err != nil {
 			return err
 		}
@@ -249,7 +249,7 @@ func WithJitterBufferInterceptor() ClientOption {
 type RTCPReportInterval time.Duration
 
 const (
-	RTCPReportIntervalLowLatency   = RTCPReportInterval(1000 * time.Millisecond)
+	RTCPReportIntervalLowLatency   = RTCPReportInterval(1 * time.Second)
 	RTCPReportIntervalDefault      = RTCPReportInterval(1 * time.Second)
 	RTCPReportIntervalHighQuality  = RTCPReportInterval(1500 * time.Millisecond)
 	RTCPReportIntervalLowBandwidth = RTCPReportInterval(2 * time.Second)
@@ -257,11 +257,11 @@ const (
 
 func WithRTCPReportsInterceptor(interval RTCPReportInterval) ClientOption {
 	return func(client *Client) error {
-		receiver, err := report.NewReceiverInterceptor()
+		receiver, err := report.NewReceiverInterceptor(report.ReceiverInterval(time.Duration(interval)))
 		if err != nil {
 			return err
 		}
-		sender, err := report.NewSenderInterceptor()
+		sender, err := report.NewSenderInterceptor(report.SenderInterval(time.Duration(interval)))
 		if err != nil {
 			return err
 		}
