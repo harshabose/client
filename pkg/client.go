@@ -11,6 +11,8 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
+var now = time.Now()
+
 type Client struct {
 	peerConnections     map[string]*PeerConnection
 	mediaEngine         *webrtc.MediaEngine
@@ -73,7 +75,11 @@ func (client *Client) CreatePeerConnection(label string, options ...PeerConnecti
 		case estimator := <-client.estimatorChan:
 			fmt.Printf("successfully set bwe estimator for %s peer connection\n", label)
 			client.peerConnections[label].bwController.estimator = estimator
-			client.peerConnections[label].bwController.interval = time.Second
+			client.peerConnections[label].bwController.estimator.OnTargetBitrateChange(func(bitrate int) {
+				fmt.Printf("GOT BITRATE UPDATE: %d; time since last update: %v\n", bitrate, time.Since(now).Milliseconds())
+				now = time.Now()
+			})
+			client.peerConnections[label].bwController.interval = 500 * time.Millisecond
 		}
 	}
 

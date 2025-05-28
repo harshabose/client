@@ -202,7 +202,7 @@ func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions
 type TWCCSenderInterval time.Duration
 
 const (
-	TWCCIntervalLowLatency   = TWCCSenderInterval(200 * time.Millisecond)
+	TWCCIntervalLowLatency   = TWCCSenderInterval(500 * time.Millisecond)
 	TWCCIntervalDefault      = TWCCSenderInterval(100 * time.Millisecond)
 	TWCCIntervalHighQuality  = TWCCSenderInterval(200 * time.Millisecond)
 	TWCCIntervalLowBandwidth = TWCCSenderInterval(500 * time.Millisecond)
