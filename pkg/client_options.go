@@ -24,6 +24,7 @@ const (
 	H264RTXPayloadType webrtc.PayloadType = 103
 	VP8PayloadType     webrtc.PayloadType = 96
 	VP8RTXPayloadType  webrtc.PayloadType = 97
+	OpusPayloadType    webrtc.PayloadType = 111
 )
 
 const (
@@ -202,7 +203,7 @@ func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions
 type TWCCSenderInterval time.Duration
 
 const (
-	TWCCIntervalLowLatency   = TWCCSenderInterval(500 * time.Millisecond)
+	TWCCIntervalLowLatency   = TWCCSenderInterval(200 * time.Millisecond)
 	TWCCIntervalDefault      = TWCCSenderInterval(100 * time.Millisecond)
 	TWCCIntervalHighQuality  = TWCCSenderInterval(200 * time.Millisecond)
 	TWCCIntervalLowBandwidth = TWCCSenderInterval(500 * time.Millisecond)

@@ -47,7 +47,7 @@ func CreatePeerConnection(ctx context.Context, cancel context.CancelFunc, label 
 		return nil, err
 	}
 
-	return pc.onConnectionStateChangeEvent().onDataChannel().onTrack().onICEConnectionStateChange().onICEGatheringStateChange().onICECandidate(), err
+	return pc.onConnectionStateChangeEvent().onTrack().onICEConnectionStateChange().onICEGatheringStateChange().onICECandidate(), err
 }
 
 func (pc *PeerConnection) GetLabel() string {
@@ -85,7 +85,11 @@ func (pc *PeerConnection) onTrack() *PeerConnection {
 		fmt.Println("no sink pre-set for ID:", remote.ID())
 		fmt.Println("creating a temporary sink...")
 
-		sink, err := pc.sinks.CreateSink(remote.ID(), mediasink.WithRTSPHost(8554, remote.ID(), rtsp.WithOptionsFromRemote(remote)))
+		// RTSP HOST ASSUMES A RTSP SERVER IS RUNNING IN THE GIVEN CONFIG
+		config := rtsp.LocalHostConfig()
+		config.StreamPath = remote.ID()
+
+		sink, err := pc.sinks.CreateSink(remote.ID(), mediasink.WithRTSPHost(config, nil, rtsp.WithOptionsFromRemote(remote)))
 		if err != nil {
 			fmt.Println("failed to create sink:", err)
 		} else {
@@ -135,25 +139,11 @@ func (pc *PeerConnection) onICECandidate() *PeerConnection {
 	return pc
 }
 
-func (pc *PeerConnection) onDataChannel() *PeerConnection {
-	pc.peerConnection.OnDataChannel(func(channel *webrtc.DataChannel) {
-		fmt.Println("got a non pre-negotiated datachannel with label:", channel.Label())
-		fmt.Println("creating a ad-hoc datachannel interface...")
-		dataChannel, err := pc.dataChannels.CreateDataChannel(channel.Label(), pc.peerConnection, data.WithRandomBindPort)
-		if err != nil {
-			fmt.Println(errors.New("failed to create datachannel"))
-		}
-		fmt.Println("successfully created a raw datachannel with bind port:", dataChannel.GetBindPort())
-		fmt.Println("send and receive to and from the above bind port")
-	})
-	return pc
-}
-
-func (pc *PeerConnection) CreateDataChannel(label string, options ...data.LoopBackOption) (*data.DataChannel, error) {
+func (pc *PeerConnection) CreateDataChannel(label string, sink *mediasink.Sink) (*data.DataChannel, error) {
 	if pc.dataChannels == nil {
 		return nil, errors.New("data channels are not enabled")
 	}
-	return pc.dataChannels.CreateDataChannel(label, pc.peerConnection, options...)
+	return pc.dataChannels.CreateDataChannel(label, pc.peerConnection, sink)
 }
 
 func (pc *PeerConnection) CreateMediaSource(label string, withBWController bool, options ...mediasource.TrackOption) (*mediasource.Track, error) {
@@ -174,14 +164,15 @@ func (pc *PeerConnection) CreateMediaSource(label string, withBWController bool,
 	return track, nil
 }
 
-func (pc *PeerConnection) CreateMediaSink(label string, options ...mediasink.StreamOption) error {
+func (pc *PeerConnection) CreateMediaSink(label string, options ...mediasink.StreamOption) (*mediasink.Sink, error) {
 	if pc.sinks == nil {
-		return errors.New("media sink are not enabled")
+		return nil, errors.New("media sink are not enabled")
 	}
-	if _, err := pc.sinks.CreateSink(label, options...); err != nil {
-		return err
+	sink, err := pc.sinks.CreateSink(label, options...)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return sink, nil
 }
 
 func (pc *PeerConnection) Connect(category string) error {

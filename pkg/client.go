@@ -79,7 +79,7 @@ func (client *Client) CreatePeerConnection(label string, options ...PeerConnecti
 				fmt.Printf("GOT BITRATE UPDATE: %d; time since last update: %v\n", bitrate, time.Since(now).Milliseconds())
 				now = time.Now()
 			})
-			client.peerConnections[label].bwController.interval = 500 * time.Millisecond
+			client.peerConnections[label].bwController.interval = 50 * time.Millisecond
 		}
 	}
 
