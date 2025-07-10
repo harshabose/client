@@ -6,12 +6,12 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-func GetRTCConfiguration() *webrtc.Configuration {
-	return &webrtc.Configuration{
+func GetRTCConfiguration() webrtc.Configuration {
+	return webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: []string{os.Getenv("STUN_SERVER_URL")},
-			},
+			// {
+			// 	URLs: []string{os.Getenv("STUN_SERVER_URL")},
+			// },
 			{
 				URLs:           []string{os.Getenv("TURN_UDP_SERVER_URL")},
 				Username:       os.Getenv("TURN_SERVER_USERNAME"),

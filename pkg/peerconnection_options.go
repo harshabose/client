@@ -1,21 +1,12 @@
 package client
 
 import (
-	"github.com/pion/webrtc/v4"
-
-	"github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
-	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
-	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
+	"github.com/harshabose/simple_webrtc_comm/client/pkg/datachannel"
+	"github.com/harshabose/simple_webrtc_comm/client/pkg/mediasink"
+	"github.com/harshabose/simple_webrtc_comm/client/pkg/mediasource"
 )
 
 type PeerConnectionOption = func(*PeerConnection) error
-
-func WithRTCConfiguration(config *webrtc.Configuration) PeerConnectionOption {
-	return func(connection *PeerConnection) error {
-		connection.config = config
-		return nil
-	}
-}
 
 func WithFirebaseOfferSignal(connection *PeerConnection) error {
 	connection.signal = CreateFirebaseOfferSignal(connection.ctx, connection)
@@ -41,25 +32,17 @@ func WithFileAnswerSignal(offerPath, answerPath string) PeerConnectionOption {
 	}
 }
 
-func WithMediaSources(options ...mediasource.TracksOption) PeerConnectionOption {
+func WithMediaSources() PeerConnectionOption {
 	return func(pc *PeerConnection) error {
-		var err error
-
-		if pc.tracks, err = mediasource.CreateTracks(pc.ctx, options...); err != nil {
-			return err
-		}
+		pc.tracks = mediasource.CreateTracks(pc.ctx)
 
 		return nil
 	}
 }
 
-func WithMediaSinks(options ...mediasink.SinksOptions) PeerConnectionOption {
+func WithMediaSinks() PeerConnectionOption {
 	return func(pc *PeerConnection) error {
-		var err error
-
-		if pc.sinks, err = mediasink.CreateSinks(pc.ctx, options...); err != nil {
-			return err
-		}
+		pc.sinks = mediasink.CreateSinks(pc.ctx, pc.peerConnection)
 
 		return nil
 	}
@@ -67,18 +50,8 @@ func WithMediaSinks(options ...mediasink.SinksOptions) PeerConnectionOption {
 
 func WithDataChannels() PeerConnectionOption {
 	return func(pc *PeerConnection) error {
-		var err error
-		if pc.dataChannels, err = data.CreateDataChannels(pc.ctx); err != nil {
-			return err
-		}
+		pc.dataChannels = datachannel.CreateDataChannels(pc.ctx)
 
-		return nil
-	}
-}
-
-func WithBandwidthControl() PeerConnectionOption {
-	return func(connection *PeerConnection) error {
-		connection.bwController = createBWController(connection.ctx)
 		return nil
 	}
 }

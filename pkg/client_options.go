@@ -300,7 +300,6 @@ func WithSimulcastExtensionHeaders() ClientOption {
 
 func WithBandwidthControlInterceptor(initialBitrate, minimumBitrate, maximumBitrate int64, interval time.Duration) ClientOption {
 	return func(client *Client) error {
-		fmt.Println("creating bitrate controller with initial bitrate:", initialBitrate)
 		congestionController, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
 			return gcc.NewSendSideBWE(gcc.SendSideBWEInitialBitrate(int(initialBitrate)), gcc.SendSideBWEMinBitrate(int(minimumBitrate)), gcc.SendSideBWEMaxBitrate(int(maximumBitrate)))
 		})
@@ -309,9 +308,7 @@ func WithBandwidthControlInterceptor(initialBitrate, minimumBitrate, maximumBitr
 		}
 
 		congestionController.OnNewPeerConnection(func(id string, estimator cc.BandwidthEstimator) {
-			fmt.Println("sending estimator")
 			client.estimatorChan <- estimator
-			fmt.Println("send estimator")
 		})
 
 		client.interceptorRegistry.Add(congestionController)

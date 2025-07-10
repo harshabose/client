@@ -5,36 +5,35 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/pion/interceptor/pkg/cc"
 	"github.com/pion/webrtc/v4"
 
-	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg"
-	"github.com/harshabose/simple_webrtc_comm/mediasink/pkg/rtsp"
-	"github.com/harshabose/simple_webrtc_comm/mediasource/pkg"
-
-	"github.com/harshabose/simple_webrtc_comm/datachannel/pkg"
+	"github.com/harshabose/simple_webrtc_comm/client/pkg/datachannel"
+	"github.com/harshabose/simple_webrtc_comm/client/pkg/mediasink"
+	"github.com/harshabose/simple_webrtc_comm/client/pkg/mediasource"
 )
 
 type PeerConnection struct {
 	label          string
 	peerConnection *webrtc.PeerConnection
-	dataChannels   *data.DataChannels
+	dataChannels   *datachannel.DataChannels
 	tracks         *mediasource.Tracks
 	sinks          *mediasink.Sinks
-	config         *webrtc.Configuration
 	signal         BaseSignal
-	bwController   *bwController
+	bwController   *BWEController
 	ctx            context.Context
 	cancel         context.CancelFunc
 }
 
-func CreatePeerConnection(ctx context.Context, cancel context.CancelFunc, label string, api *webrtc.API, options ...PeerConnectionOption) (*PeerConnection, error) {
+func CreatePeerConnection(ctx context.Context, cancel context.CancelFunc, label string, api *webrtc.API, config webrtc.Configuration, options ...PeerConnectionOption) (*PeerConnection, error) {
 	var err error
 	pc := &PeerConnection{
 		label:  label,
-		config: &webrtc.Configuration{},
 		ctx:    ctx,
 		cancel: cancel,
+	}
+
+	if pc.peerConnection, err = api.NewPeerConnection(config); err != nil {
+		return nil, err
 	}
 
 	for _, option := range options {
@@ -43,11 +42,7 @@ func CreatePeerConnection(ctx context.Context, cancel context.CancelFunc, label 
 		}
 	}
 
-	if pc.peerConnection, err = api.NewPeerConnection(*pc.config); err != nil {
-		return nil, err
-	}
-
-	return pc.onConnectionStateChangeEvent().onTrack().onICEConnectionStateChange().onICEGatheringStateChange().onICECandidate(), err
+	return pc.onConnectionStateChangeEvent().onICEConnectionStateChange().onICEGatheringStateChange().onICECandidate(), err
 }
 
 func (pc *PeerConnection) GetLabel() string {
@@ -60,46 +55,6 @@ func (pc *PeerConnection) GetPeerConnection() (*webrtc.PeerConnection, error) {
 	}
 
 	return pc.peerConnection, nil
-}
-
-func (pc *PeerConnection) GetBWEstimator() (cc.BandwidthEstimator, error) {
-	if pc.bwController == nil || pc.bwController.estimator == nil {
-		return nil, errors.New("estimator is nil")
-	}
-
-	return pc.bwController.estimator, nil
-}
-
-func (pc *PeerConnection) onTrack() *PeerConnection {
-	pc.peerConnection.OnTrack(func(remote *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		if pc.sinks == nil {
-			fmt.Println("got a remote track but sinks are not enabled...")
-		}
-		if sink, err := pc.sinks.GetSink(remote.ID()); err == nil {
-			fmt.Println("found existing sink for track ID:", remote.ID())
-			sink.SetTrack(remote)
-			sink.Start()
-			return
-		}
-
-		fmt.Println("no sink pre-set for ID:", remote.ID())
-		fmt.Println("creating a temporary sink...")
-
-		// RTSP HOST ASSUMES A RTSP SERVER IS RUNNING IN THE GIVEN CONFIG
-		config := rtsp.LocalHostConfig()
-		config.StreamPath = remote.ID()
-
-		sink, err := pc.sinks.CreateSink(remote.ID(), mediasink.WithRTSPHost(config, nil, rtsp.WithOptionsFromRemote(remote)))
-		if err != nil {
-			fmt.Println("failed to create sink:", err)
-		} else {
-			sink.SetTrack(remote)
-			sink.Start()
-			fmt.Println("temporary sink created and started for track ID:", remote.ID())
-		}
-	})
-
-	return pc
 }
 
 func (pc *PeerConnection) onConnectionStateChangeEvent() *PeerConnection {
@@ -139,14 +94,19 @@ func (pc *PeerConnection) onICECandidate() *PeerConnection {
 	return pc
 }
 
-func (pc *PeerConnection) CreateDataChannel(label string, sink *mediasink.Sink) (*data.DataChannel, error) {
+func (pc *PeerConnection) CreateDataChannel(label string) (*datachannel.DataChannel, error) {
 	if pc.dataChannels == nil {
 		return nil, errors.New("data channels are not enabled")
 	}
-	return pc.dataChannels.CreateDataChannel(label, pc.peerConnection, sink)
+	channel, err := pc.dataChannels.CreateDataChannel(label, pc.peerConnection)
+	if err != nil {
+		return nil, err
+	}
+
+	return channel, nil
 }
 
-func (pc *PeerConnection) CreateMediaSource(label string, withBWController bool, options ...mediasource.TrackOption) (*mediasource.Track, error) {
+func (pc *PeerConnection) CreateMediaSource(label string, options ...mediasource.TrackOption) (*mediasource.Track, error) {
 	if pc.tracks == nil {
 		return nil, errors.New("media source are not enabled")
 	}
@@ -156,22 +116,19 @@ func (pc *PeerConnection) CreateMediaSource(label string, withBWController bool,
 		return nil, err
 	}
 
-	if pc.bwController != nil && pc.bwController.estimator != nil && withBWController {
-		fmt.Printf("subscribing media source with label '%s' to bw estimator\n", label)
-		return nil, pc.bwController.Subscribe(track)
-	}
-
 	return track, nil
 }
 
-func (pc *PeerConnection) CreateMediaSink(label string, options ...mediasink.StreamOption) (*mediasink.Sink, error) {
+func (pc *PeerConnection) CreateMediaSink(label string, operator func(context.Context, *webrtc.TrackRemote) error) (*mediasink.Sink, error) {
 	if pc.sinks == nil {
-		return nil, errors.New("media sink are not enabled")
+		return nil, errors.New("media sinks are not enabled")
 	}
-	sink, err := pc.sinks.CreateSink(label, options...)
+
+	sink, err := pc.sinks.CreateSink(label, operator)
 	if err != nil {
 		return nil, err
 	}
+
 	return sink, nil
 }
 
@@ -180,18 +137,11 @@ func (pc *PeerConnection) Connect(category string) error {
 		return err
 	}
 
-	if pc.tracks != nil {
-		fmt.Println("Starting all media source tracks...")
-		pc.tracks.StartAll()
-	}
-	if pc.bwController != nil {
-		pc.bwController.Start()
-	}
-
 	return nil
 }
 
 func (pc *PeerConnection) Close() error {
+	// TODO:
 	// clear data channels if any
 	// clear tracks if any
 	// clear sinks if any
