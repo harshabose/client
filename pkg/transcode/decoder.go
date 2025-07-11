@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/asticode/go-astiav"
-
-	"github.com/harshabose/tools/buffer/pkg"
+	"github.com/harshabose/tools/pkg/buffer"
 )
 
 type GeneralDecoder struct {
@@ -56,7 +55,7 @@ func CreateGeneralDecoder(ctx context.Context, canProduceMediaType CanProduceMed
 	}
 
 	if decoder.buffer == nil {
-		decoder.buffer = buffer.CreateChannelBuffer(ctx, 256, buffer.CreateFramePool())
+		decoder.buffer = buffer.buffer.CreateChannelBuffer(ctx, 256, buffer.CreateFramePool())
 	}
 
 	if err = decoder.decoderContext.Open(decoder.codec, nil); err != nil {

@@ -4,11 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/harshabose/mediapipe"
-	"github.com/harshabose/mediapipe/pkg/rtpgenerator"
 	"github.com/harshabose/mediapipe/pkg/rtsp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
+
+	"github.com/harshabose/mediapipe"
+	"github.com/harshabose/mediapipe/pkg/generators"
 )
 
 func RTSPSink(config *rtsp.ClientConfig) func(context.Context, *webrtc.TrackRemote) error {
@@ -21,7 +22,7 @@ func RTSPSink(config *rtsp.ClientConfig) func(context.Context, *webrtc.TrackRemo
 		client.Start()
 		time.Sleep(5 * time.Second)
 
-		r := mediapipe.NewIdentityAnyReader(rtpgenerator.NewPionRTPGenerator(remote))
+		r := mediapipe.NewIdentityAnyReader(generators.NewPionRTPGenerator(remote))
 		w := mediapipe.NewIdentityAnyWriter[*rtp.Packet](client)
 
 		mediapipe.NewAnyPipe(ctx, r, w).Start()

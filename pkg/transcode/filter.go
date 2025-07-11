@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/asticode/go-astiav"
-
-	"github.com/harshabose/tools/buffer/pkg"
+	"github.com/harshabose/tools/pkg/buffer"
 )
 
 type GeneralFilter struct {
@@ -81,7 +80,7 @@ func CreateGeneralFilter(ctx context.Context, canProduceMediaFrame CanProduceMed
 	}
 
 	if filter.buffer == nil {
-		filter.buffer = buffer.CreateChannelBuffer(ctx, 256, buffer.CreateFramePool())
+		filter.buffer = buffer.buffer.CreateChannelBuffer(ctx, 256, buffer.CreateFramePool())
 	}
 
 	if err = filter.srcContext.SetParameters(filter.srcContextParams); err != nil {

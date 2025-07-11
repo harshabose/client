@@ -1,8 +1,6 @@
 module github.com/harshabose/simple_webrtc_comm/client
 
-go 1.24
-
-toolchain go1.24.1
+go 1.24.1
 
 require (
 	cloud.google.com/go/firestore v1.18.0
@@ -32,7 +30,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
-	github.com/harshabose/tools/buffer v0.0.0 // indirect
+	github.com/harshabose/tools v0.0.0 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v3 v3.0.6 // indirect
 	github.com/pion/ice/v4 v4.0.10 // indirect
@@ -69,6 +67,6 @@ require (
 )
 
 replace (
-	github.com/harshabose/mediapipe => ../../../mediapipe
-	github.com/harshabose/tools/buffer => ../tools/buffer
+	github.com/harshabose/mediapipe => ../mediapipe
+	github.com/harshabose/tools => ../tools
 )

@@ -11,8 +11,7 @@ import (
 	"time"
 
 	"github.com/asticode/go-astiav"
-
-	"github.com/harshabose/tools/buffer/pkg"
+	"github.com/harshabose/tools/pkg/buffer"
 )
 
 type UpdateConfig struct {
@@ -46,7 +45,7 @@ func NewUpdateEncoder(ctx context.Context, config UpdateConfig, builder *General
 		config:  config,
 		builder: builder,
 		resume:  make(chan struct{}),
-		buffer:  buffer.CreateChannelBuffer(ctx, 30, buffer.CreatePacketPool()),
+		buffer:  buffer.buffer.CreateChannelBuffer(ctx, 30, buffer.CreatePacketPool()),
 		ctx:     ctx,
 	}
 

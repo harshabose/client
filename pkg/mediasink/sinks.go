@@ -47,6 +47,15 @@ func (s *Sinks) onTrack(pc *webrtc.PeerConnection) {
 		if err := sink.operator(s.ctx, remote); err != nil {
 			fmt.Printf("ERROR: failed to operate on track (id=%s); err: %v\n", remote.ID(), err)
 		}
+
+		go func() {
+			for {
+				rtcpBuf := make([]byte, 1500)
+				if _, _, err := receiver.Read(rtcpBuf); err != nil {
+					fmt.Printf("error while reading rtcp packets")
+				}
+			}
+		}()
 	})
 }
 

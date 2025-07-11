@@ -6,8 +6,7 @@ import (
 	"context"
 
 	"github.com/asticode/go-astiav"
-
-	buffer "github.com/harshabose/tools/buffer/pkg"
+	"github.com/harshabose/tools/pkg/buffer"
 )
 
 type TranscoderOption = func(*Transcoder) error
