@@ -19,7 +19,7 @@ type CanSetDemuxerInputFormat interface {
 }
 
 type CanSetBuffer[T any] interface {
-	SetBuffer(buffer buffer.Buffer[T])
+	SetBuffer(buffer buffer.BufferWithGenerator[T])
 }
 
 type CanDescribeFrameRate interface {
