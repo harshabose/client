@@ -46,7 +46,7 @@ func NewUpdateEncoder(ctx context.Context, config UpdateConfig, builder *General
 		config:  config,
 		builder: builder,
 		resume:  make(chan struct{}),
-		buffer:  buffer.buffer.CreateChannelBuffer(ctx, 30, buffer.CreatePacketPool()),
+		buffer:  buffer.CreateChannelBuffer(ctx, 30, buffer.CreatePacketPool()),
 		ctx:     ctx,
 	}
 
