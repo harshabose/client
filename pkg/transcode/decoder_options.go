@@ -4,6 +4,7 @@ package transcode
 
 import (
 	"github.com/asticode/go-astiav"
+
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
@@ -56,7 +57,7 @@ func WithDecoderBuffer(size int, pool buffer.Pool[*astiav.Frame]) DecoderOption 
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.buffer.CreateChannelBuffer(decoder.Ctx(), size, pool))
+		s.SetBuffer(buffer.CreateChannelBuffer(decoder.Ctx(), size, pool))
 		return nil
 	}
 }

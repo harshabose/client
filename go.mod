@@ -5,8 +5,12 @@ go 1.24.1
 require (
 	cloud.google.com/go/firestore v1.18.0
 	firebase.google.com/go v3.13.0+incompatible
+	github.com/asticode/go-astiav v0.37.0
 	github.com/harshabose/mediapipe v0.0.0
+	github.com/harshabose/tools v0.0.0
 	github.com/pion/interceptor v0.1.40
+	github.com/pion/rtp v1.8.19
+	github.com/pion/sdp/v3 v3.0.13
 	github.com/pion/webrtc/v4 v4.1.2
 	google.golang.org/api v0.222.0
 	google.golang.org/grpc v1.70.0
@@ -20,8 +24,11 @@ require (
 	cloud.google.com/go/iam v1.2.2 // indirect
 	cloud.google.com/go/longrunning v0.6.2 // indirect
 	cloud.google.com/go/storage v1.43.0 // indirect
-	github.com/asticode/go-astiav v0.37.0 // indirect
 	github.com/asticode/go-astikit v0.52.0 // indirect
+	github.com/bluenviron/gortsplib/v4 v4.14.1 // indirect
+	github.com/bluenviron/mediacommon/v2 v2.2.0 // indirect
+	github.com/coder/websocket v1.8.13 // indirect
+	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -30,7 +37,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
-	github.com/harshabose/tools v0.0.0 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v3 v3.0.6 // indirect
 	github.com/pion/ice/v4 v4.0.10 // indirect
@@ -38,9 +44,7 @@ require (
 	github.com/pion/mdns/v2 v2.0.7 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.15 // indirect
-	github.com/pion/rtp v1.8.19 // indirect
 	github.com/pion/sctp v1.8.39 // indirect
-	github.com/pion/sdp/v3 v3.0.13 // indirect
 	github.com/pion/srtp/v3 v3.0.5 // indirect
 	github.com/pion/stun/v3 v3.0.0 // indirect
 	github.com/pion/transport/v3 v3.0.7 // indirect

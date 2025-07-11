@@ -59,8 +59,8 @@ func WithVP8Track(clockrate uint32) TrackOption {
 type StereoType uint8
 
 const (
-	StereoMono StereoType = StereoType(0)
-	StereoDual StereoType = StereoType(1)
+	StereoMono = StereoType(0)
+	StereoDual = StereoType(1)
 )
 
 func WithOpusTrack(samplerate uint32, channelLayout uint16, stereo StereoType) TrackOption {

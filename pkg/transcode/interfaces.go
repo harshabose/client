@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"github.com/asticode/go-astiav"
+
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
@@ -18,7 +19,7 @@ type CanSetDemuxerInputFormat interface {
 }
 
 type CanSetBuffer[T any] interface {
-	SetBuffer(buffer buffer.buffer[T])
+	SetBuffer(buffer buffer.Buffer[T])
 }
 
 type CanDescribeFrameRate interface {

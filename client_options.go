@@ -232,6 +232,7 @@ func WithTWCCSenderInterceptor(interval TWCCSenderInterval) ClientOption {
 }
 
 // WARN: DO NOT USE THIS, PION HAS SOME ISSUE WITH THIS WHICH MAKES THE ONTRACK CALLBACK NOT FIRE
+
 func WithJitterBufferInterceptor() ClientOption {
 	return func(client *Client) error {
 		var (
@@ -275,6 +276,7 @@ func WithRTCPReportsInterceptor(interval RTCPReportInterval) ClientOption {
 }
 
 // WARN: DO NOT USE FLEXFEC YET, AS THE FECOPTION ARE NOT YET IMPLEMENTED
+
 func WithFLEXFECInterceptor() ClientOption {
 	return func(client *Client) error {
 		var (

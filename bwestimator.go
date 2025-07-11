@@ -73,7 +73,7 @@ func (bwc *BWEController) getSubscribers() []subscriber {
 
 // calculateTotalPriority calculates sum of all subscriber priorities
 func (bwc *BWEController) calculateTotalPriority(subs []subscriber) mediasource.Priority {
-	var totalPriority mediasource.Priority = mediasource.Level0
+	var totalPriority = mediasource.Level0
 
 	for _, sub := range subs {
 		totalPriority += sub.priority

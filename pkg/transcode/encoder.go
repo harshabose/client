@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/asticode/go-astiav"
+
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
@@ -68,7 +69,7 @@ func CreateGeneralEncoder(ctx context.Context, codecID astiav.CodecID, canProduc
 	}
 
 	if encoder.buffer == nil {
-		encoder.buffer = buffer.buffer.CreateChannelBuffer(ctx2, 256, buffer.CreatePacketPool())
+		encoder.buffer = buffer.CreateChannelBuffer(ctx2, 256, buffer.CreatePacketPool())
 	}
 
 	encoder.findParameterSets(encoder.encoderContext.ExtraData())

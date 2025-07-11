@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/asticode/go-astiav"
+
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
@@ -64,7 +65,7 @@ func CreateGeneralDemuxer(ctx context.Context, containerAddress string, options 
 	demuxer.codecParameters = demuxer.stream.CodecParameters()
 
 	if demuxer.buffer == nil {
-		demuxer.buffer = buffer.buffer.CreateChannelBuffer(ctx, 256, buffer.CreatePacketPool())
+		demuxer.buffer = buffer.CreateChannelBuffer(ctx, 256, buffer.CreatePacketPool())
 	}
 
 	return demuxer, nil

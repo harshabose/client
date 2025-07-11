@@ -24,12 +24,10 @@ func CreateDataChannel(ctx context.Context, label string, peerConnection *webrtc
 		dataChannelNegotiated = true
 		dataChannelProtocol   = "binary"
 		dataChannelOrdered    = true
-		dataChannelID         = uint16(1) // Add explicit ID
 		dataChannelInit       = webrtc.DataChannelInit{
 			Negotiated: &dataChannelNegotiated,
 			Protocol:   &dataChannelProtocol,
 			Ordered:    &dataChannelOrdered,
-			ID:         &dataChannelID,
 		}
 		err error
 	)

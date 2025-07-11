@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/asticode/go-astiav"
+
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
@@ -48,7 +49,7 @@ func WithFilterBuffer(size int, pool buffer.Pool[*astiav.Frame]) FilterOption {
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.buffer.CreateChannelBuffer(filter.Ctx(), size, pool))
+		s.SetBuffer(buffer.CreateChannelBuffer(filter.Ctx(), size, pool))
 		return nil
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/asticode/go-astiav"
+
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
@@ -333,7 +334,7 @@ func WithEncoderBufferSize(size int, pool buffer.Pool[*astiav.Packet]) EncoderOp
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.buffer.CreateChannelBuffer(encoder.Ctx(), size, pool))
+		s.SetBuffer(buffer.CreateChannelBuffer(encoder.Ctx(), size, pool))
 		return nil
 	}
 }
