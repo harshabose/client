@@ -13,46 +13,13 @@ import (
 	"github.com/pion/interceptor/pkg/twcc"
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v4"
+
+	"github.com/harshabose/simple_webrtc_comm/client/pkg/mediasource"
 )
 
 type ClientOption = func(*Client) error
 
-type PacketisationMode uint8
-
-const (
-	H264PayloadType    webrtc.PayloadType = 102
-	H264RTXPayloadType webrtc.PayloadType = 103
-	VP8PayloadType     webrtc.PayloadType = 96
-	VP8RTXPayloadType  webrtc.PayloadType = 97
-	OpusPayloadType    webrtc.PayloadType = 111
-)
-
-const (
-	PacketisationMode0 PacketisationMode = 0
-	PacketisationMode1 PacketisationMode = 1
-	PacketisationMode2 PacketisationMode = 2
-)
-
-type ProfileLevel string
-
-const (
-	ProfileLevelBaseline21 ProfileLevel = "420015" // Level 2.1 (480p)
-	ProfileLevelBaseline31 ProfileLevel = "42001f" // Level 3.1 (720p)
-	ProfileLevelBaseline41 ProfileLevel = "420029" // Level 4.1 (1080p)
-	ProfileLevelBaseline42 ProfileLevel = "42002a" // Level 4.2 (2K)
-
-	ProfileLevelMain21 ProfileLevel = "4D0015" // Level 2.1
-	ProfileLevelMain31 ProfileLevel = "4D001f" // Level 3.1
-	ProfileLevelMain41 ProfileLevel = "4D0029" // Level 4.1
-	ProfileLevelMain42 ProfileLevel = "4D002a" // Level 4.2
-
-	ProfileLevelHigh21 ProfileLevel = "640015" // Level 2.1
-	ProfileLevelHigh31 ProfileLevel = "64001f" // Level 3.1
-	ProfileLevelHigh41 ProfileLevel = "640029" // Level 4.1
-	ProfileLevelHigh42 ProfileLevel = "64002a" // Level 4.2
-)
-
-func WithH264MediaEngine(clockrate uint32, packetisationMode PacketisationMode, profileLevelID ProfileLevel, sps, pps string) ClientOption {
+func WithH264MediaEngine(clockrate uint32, packetisationMode mediasource.PacketisationMode, profileLevelID mediasource.ProfileLevel, sps, pps string) ClientOption {
 	return func(client *Client) error {
 		RTCPFeedback := []webrtc.RTCPFeedback{{Type: webrtc.TypeRTCPFBGoogREMB}, {Type: webrtc.TypeRTCPFBCCM, Parameter: "fir"}, {Type: webrtc.TypeRTCPFBNACK}, {Type: webrtc.TypeRTCPFBNACK, Parameter: "pli"}}
 		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
@@ -87,8 +54,6 @@ func WithH264MediaEngine(clockrate uint32, packetisationMode PacketisationMode, 
 
 func WithVP8MediaEngine(clockrate uint32) ClientOption {
 	return func(client *Client) error {
-		fmt.Println("setting up VP8 media codec in media engine ..")
-		fmt.Println("setting up VP8 media codec in media engine with REMB, CCM, NACK AND NACK-PLI RTCP feedback ...")
 		RTCPFeedback := []webrtc.RTCPFeedback{{Type: webrtc.TypeRTCPFBGoogREMB}, {Type: webrtc.TypeRTCPFBCCM, Parameter: "fir"}, {Type: webrtc.TypeRTCPFBNACK}, {Type: webrtc.TypeRTCPFBNACK, Parameter: "pli"}}
 		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -102,7 +67,6 @@ func WithVP8MediaEngine(clockrate uint32) ClientOption {
 			return err
 		}
 
-		fmt.Println("setting up VP8 media codec RTX in media engine ...")
 		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
 				MimeType:     webrtc.MimeTypeRTX,
@@ -115,7 +79,6 @@ func WithVP8MediaEngine(clockrate uint32) ClientOption {
 			return err
 		}
 
-		fmt.Println("... done setting VP8 media codec in media enginer")
 		return nil
 	}
 }
@@ -138,55 +101,32 @@ func WithDefaultInterceptorRegistry() ClientOption {
 	}
 }
 
-type StereoType uint8
-
-const (
-	Mono StereoType = 0
-	Dual StereoType = 1
-)
-
-func WithOpusMediaEngine(samplerate uint32, channelLayout uint16, stereo StereoType) ClientOption {
+func WithOpusMediaEngine(samplerate uint32, channelLayout uint16, stereo mediasource.StereoType) ClientOption {
 	return func(client *Client) error {
 		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:    webrtc.MimeTypeOpus,
-				ClockRate:   samplerate,
-				Channels:    channelLayout,
-				SDPFmtpLine: fmt.Sprintf("minptime=10;useinbandfec=1;stereo=%d", stereo),
+				MimeType:     webrtc.MimeTypeOpus,
+				ClockRate:    samplerate,
+				Channels:     channelLayout,
+				RTCPFeedback: nil,
+				SDPFmtpLine:  fmt.Sprintf("minptime=10;useinbandfec=1;stereo=%d", stereo),
 			},
-			PayloadType: 111,
+			PayloadType: OpusPayloadType,
 		}, webrtc.RTPCodecTypeAudio); err != nil {
 			return err
 		}
+
 		return nil
 	}
 }
 
-type NACKGeneratorOptions []nack.GeneratorOption
-
-var (
-	NACKGeneratorLowLatency   NACKGeneratorOptions = []nack.GeneratorOption{nack.GeneratorSize(256), nack.GeneratorSkipLastN(2), nack.GeneratorMaxNacksPerPacket(1), nack.GeneratorInterval(50 * time.Millisecond)}
-	NACKGeneratorDefault      NACKGeneratorOptions = []nack.GeneratorOption{nack.GeneratorSize(512), nack.GeneratorSkipLastN(5), nack.GeneratorMaxNacksPerPacket(2), nack.GeneratorInterval(100 * time.Millisecond)}
-	NACKGeneratorHighQuality  NACKGeneratorOptions = []nack.GeneratorOption{nack.GeneratorSize(2048), nack.GeneratorSkipLastN(10), nack.GeneratorMaxNacksPerPacket(3), nack.GeneratorInterval(200 * time.Millisecond)}
-	NACKGeneratorLowBandwidth NACKGeneratorOptions = []nack.GeneratorOption{nack.GeneratorSize(4096), nack.GeneratorSkipLastN(15), nack.GeneratorMaxNacksPerPacket(4), nack.GeneratorInterval(150 * time.Millisecond)}
-)
-
-type NACKResponderOptions []nack.ResponderOption
-
-var (
-	NACKResponderLowLatency   NACKResponderOptions = []nack.ResponderOption{nack.ResponderSize(256), nack.DisableCopy()}
-	NACKResponderDefault      NACKResponderOptions = []nack.ResponderOption{nack.ResponderSize(1024)}
-	NACKResponderHighQuality  NACKResponderOptions = []nack.ResponderOption{nack.ResponderSize(2048)}
-	NACKResponderLowBandwidth NACKResponderOptions = []nack.ResponderOption{nack.ResponderSize(4096)}
-)
-
 func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions NACKResponderOptions) ClientOption {
 	return func(client *Client) error {
-		generator, err := nack.NewGeneratorInterceptor()
+		generator, err := nack.NewGeneratorInterceptor(generatorOptions...)
 		if err != nil {
 			return err
 		}
-		responder, err := nack.NewResponderInterceptor()
+		responder, err := nack.NewResponderInterceptor(responderOptions...)
 		if err != nil {
 			return err
 		}
@@ -199,15 +139,6 @@ func WithNACKInterceptor(generatorOptions NACKGeneratorOptions, responderOptions
 		return nil
 	}
 }
-
-type TWCCSenderInterval time.Duration
-
-const (
-	TWCCIntervalLowLatency   = TWCCSenderInterval(200 * time.Millisecond)
-	TWCCIntervalDefault      = TWCCSenderInterval(100 * time.Millisecond)
-	TWCCIntervalHighQuality  = TWCCSenderInterval(200 * time.Millisecond)
-	TWCCIntervalLowBandwidth = TWCCSenderInterval(500 * time.Millisecond)
-)
 
 func WithTWCCSenderInterceptor(interval TWCCSenderInterval) ClientOption {
 	return func(client *Client) error {
@@ -247,15 +178,6 @@ func WithJitterBufferInterceptor() ClientOption {
 		return nil
 	}
 }
-
-type RTCPReportInterval time.Duration
-
-const (
-	RTCPReportIntervalLowLatency   = RTCPReportInterval(1 * time.Second)
-	RTCPReportIntervalDefault      = RTCPReportInterval(1 * time.Second)
-	RTCPReportIntervalHighQuality  = RTCPReportInterval(1500 * time.Millisecond)
-	RTCPReportIntervalLowBandwidth = RTCPReportInterval(2 * time.Second)
-)
 
 func WithRTCPReportsInterceptor(interval RTCPReportInterval) ClientOption {
 	return func(client *Client) error {
@@ -300,7 +222,7 @@ func WithSimulcastExtensionHeaders() ClientOption {
 	}
 }
 
-func WithBandwidthControlInterceptor(initialBitrate, minimumBitrate, maximumBitrate int64, interval time.Duration) ClientOption {
+func WithBandwidthControlInterceptor(initialBitrate, minimumBitrate, maximumBitrate uint64, interval time.Duration) ClientOption {
 	return func(client *Client) error {
 		congestionController, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
 			return gcc.NewSendSideBWE(gcc.SendSideBWEInitialBitrate(int(initialBitrate)), gcc.SendSideBWEMinBitrate(int(minimumBitrate)), gcc.SendSideBWEMaxBitrate(int(maximumBitrate)))

@@ -11,32 +11,31 @@ import (
 type DataChannel struct {
 	label       string
 	datachannel *webrtc.DataChannel
+	init        *webrtc.DataChannelInit
 	ctx         context.Context
 }
 
-func CreateDataChannel(ctx context.Context, label string, peerConnection *webrtc.PeerConnection) (*DataChannel, error) {
-	datachannel := &DataChannel{
+func CreateDataChannel(ctx context.Context, label string, peerConnection *webrtc.PeerConnection, options ...Option) (*DataChannel, error) {
+	dc := &DataChannel{
 		label:       label,
 		datachannel: nil,
 		ctx:         ctx,
 	}
-	var (
-		dataChannelNegotiated = true
-		dataChannelProtocol   = "binary"
-		dataChannelOrdered    = true
-		dataChannelInit       = webrtc.DataChannelInit{
-			Negotiated: &dataChannelNegotiated,
-			Protocol:   &dataChannelProtocol,
-			Ordered:    &dataChannelOrdered,
-		}
-		err error
-	)
 
-	if datachannel.datachannel, err = peerConnection.CreateDataChannel(label, &dataChannelInit); err != nil {
+	for _, option := range options {
+		if err := option(dc); err != nil {
+			return nil, err
+		}
+	}
+
+	datachannel, err := peerConnection.CreateDataChannel(label, dc.init)
+	if err != nil {
 		return nil, err
 	}
 
-	return datachannel.onOpen().onClose(), nil
+	dc.datachannel = datachannel
+
+	return dc.onOpen().onClose(), nil
 }
 
 func CreateRawDataChannel(ctx context.Context, channel *webrtc.DataChannel) (*DataChannel, error) {
@@ -93,12 +92,12 @@ func CreateDataChannels(ctx context.Context) *DataChannels {
 	}
 }
 
-func (dataChannels *DataChannels) CreateDataChannel(label string, peerConnection *webrtc.PeerConnection) (*DataChannel, error) {
+func (dataChannels *DataChannels) CreateDataChannel(label string, peerConnection *webrtc.PeerConnection, options ...Option) (*DataChannel, error) {
 	if _, exits := dataChannels.datachannel[label]; exits {
 		return nil, fmt.Errorf("datachannel with id = '%s' already exists", label)
 	}
 
-	channel, err := CreateDataChannel(dataChannels.ctx, label, peerConnection)
+	channel, err := CreateDataChannel(dataChannels.ctx, label, peerConnection, options...)
 	if err != nil {
 		return nil, err
 	}

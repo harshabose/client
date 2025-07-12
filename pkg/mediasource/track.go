@@ -2,27 +2,28 @@ package mediasource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
 
 	_ "github.com/harshabose/mediapipe"
+	"github.com/harshabose/mediapipe/pkg/consumers"
 )
 
 // NO BUFFER IMPLEMENTATION
 
 type Track struct {
-	track         *webrtc.TrackLocalStaticSample
-	rtcCapability *webrtc.RTPCodecCapability
-	rtpSender     *webrtc.RTPSender
-	priority      Priority
-	ctx           context.Context
+	consumer        consumers.CanConsumePionSamplePacket
+	codecCapability *webrtc.RTPCodecCapability
+	rtpSender       *webrtc.RTPSender
+	priority        Priority
+	ctx             context.Context
 }
 
 func CreateTrack(ctx context.Context, label string, peerConnection *webrtc.PeerConnection, options ...TrackOption) (*Track, error) {
-	var err error
-	track := &Track{ctx: ctx, rtcCapability: &webrtc.RTPCodecCapability{}}
+	track := &Track{ctx: ctx}
 
 	for _, option := range options {
 		if err := option(track); err != nil {
@@ -30,19 +31,23 @@ func CreateTrack(ctx context.Context, label string, peerConnection *webrtc.PeerC
 		}
 	}
 
-	if track.track, err = webrtc.NewTrackLocalStaticSample(*track.rtcCapability, label, "webrtc"); err != nil {
+	if track.codecCapability == nil {
+		return nil, errors.New("no track capabilities given")
+	}
+
+	consumer, err := webrtc.NewTrackLocalStaticSample(*track.codecCapability, label, "webrtc")
+	if err != nil {
+		return nil, err
+	}
+	track.consumer = consumer
+
+	if track.rtpSender, err = peerConnection.AddTrack(consumer); err != nil {
 		return nil, err
 	}
 
-	if track.rtpSender, err = peerConnection.AddTrack(track.track); err != nil {
-		return nil, err
-	}
+	go track.rtpSenderLoop()
 
 	return track, nil
-}
-
-func (track *Track) GetTrack() *webrtc.TrackLocalStaticSample {
-	return track.track
 }
 
 func (track *Track) GetPriority() Priority {
@@ -59,8 +64,8 @@ func (track *Track) rtpSenderLoop() {
 	}
 }
 
-func (track *Track) Consume(sample media.Sample) error {
-	if err := track.track.WriteSample(sample); err != nil {
+func (track *Track) WriteSample(sample media.Sample) error {
+	if err := track.consumer.WriteSample(sample); err != nil {
 		fmt.Printf("error while writing samples to track (id: ); err; %v. Continuing...", err)
 	}
 

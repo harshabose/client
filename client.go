@@ -20,7 +20,11 @@ type Client struct {
 	cancel              context.CancelFunc
 }
 
-func CreateClient(ctx context.Context, cancel context.CancelFunc, mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry, settings *webrtc.SettingEngine, options ...ClientOption) (*Client, error) {
+func NewClient(
+	ctx context.Context, cancel context.CancelFunc,
+	mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry,
+	settings *webrtc.SettingEngine, options ...ClientOption,
+) (*Client, error) {
 	if mediaEngine == nil {
 		mediaEngine = &webrtc.MediaEngine{}
 	}
@@ -52,6 +56,17 @@ func CreateClient(ctx context.Context, cancel context.CancelFunc, mediaEngine *w
 	peerConnections.api = webrtc.NewAPI(webrtc.WithMediaEngine(peerConnections.mediaEngine), webrtc.WithInterceptorRegistry(peerConnections.interceptorRegistry), webrtc.WithSettingEngine(*peerConnections.settingsEngine))
 
 	return peerConnections, nil
+}
+
+func NewClientFromConfig(
+	ctx context.Context, cancel context.CancelFunc,
+	mediaEngine *webrtc.MediaEngine, interceptorRegistry *interceptor.Registry,
+	settings *webrtc.SettingEngine, config *ClientConfig,
+) (*Client, error) {
+	return NewClient(
+		ctx, cancel, mediaEngine, interceptorRegistry, settings,
+		config.ToOptions()..., // The magic spread operator!
+	)
 }
 
 func (client *Client) CreatePeerConnection(label string, config webrtc.Configuration, options ...PeerConnectionOption) (*PeerConnection, error) {

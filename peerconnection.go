@@ -25,21 +25,26 @@ type PeerConnection struct {
 }
 
 func CreatePeerConnection(ctx context.Context, cancel context.CancelFunc, label string, api *webrtc.API, config webrtc.Configuration, options ...PeerConnectionOption) (*PeerConnection, error) {
-	var err error
 	pc := &PeerConnection{
 		label:  label,
 		ctx:    ctx,
 		cancel: cancel,
 	}
 
-	if pc.peerConnection, err = api.NewPeerConnection(config); err != nil {
+	peerConnection, err := api.NewPeerConnection(config)
+	if err != nil {
 		return nil, err
 	}
+	pc.peerConnection = peerConnection
 
 	for _, option := range options {
 		if err := option(pc); err != nil {
 			return nil, err
 		}
+	}
+
+	if pc.signal == nil {
+		return nil, errors.New("signaling protocol not provided")
 	}
 
 	return pc.onConnectionStateChangeEvent().onICEConnectionStateChange().onICEGatheringStateChange().onICECandidate(), err
@@ -94,11 +99,11 @@ func (pc *PeerConnection) onICECandidate() *PeerConnection {
 	return pc
 }
 
-func (pc *PeerConnection) CreateDataChannel(label string) (*datachannel.DataChannel, error) {
+func (pc *PeerConnection) CreateDataChannel(label string, options ...datachannel.Option) (*datachannel.DataChannel, error) {
 	if pc.dataChannels == nil {
 		return nil, errors.New("data channels are not enabled")
 	}
-	channel, err := pc.dataChannels.CreateDataChannel(label, pc.peerConnection)
+	channel, err := pc.dataChannels.CreateDataChannel(label, pc.peerConnection, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,12 +124,12 @@ func (pc *PeerConnection) CreateMediaSource(label string, options ...mediasource
 	return track, nil
 }
 
-func (pc *PeerConnection) CreateMediaSink(label string, operator func(context.Context, *webrtc.TrackRemote) error) (*mediasink.Sink, error) {
+func (pc *PeerConnection) CreateMediaSink(label string, options ...mediasink.SinkOption) (*mediasink.Sink, error) {
 	if pc.sinks == nil {
 		return nil, errors.New("media sinks are not enabled")
 	}
 
-	sink, err := pc.sinks.CreateSink(label, operator)
+	sink, err := pc.sinks.CreateSink(label, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +138,9 @@ func (pc *PeerConnection) CreateMediaSink(label string, operator func(context.Co
 }
 
 func (pc *PeerConnection) Connect(category string) error {
+	if pc.signal == nil {
+		return errors.New("no signaling protocol provided")
+	}
 	if err := pc.signal.Connect(category, pc.label); err != nil {
 		return err
 	}
