@@ -207,7 +207,6 @@ func (u *MultiUpdateEncoder) findBestEncoderIndex(targetBps int64) int {
 
 func (u *MultiUpdateEncoder) switchEncoder(index int) {
 	if index < len(u.encoders) {
-		fmt.Printf("swapping to %d encoder with bitrate %d\n", index, u.bitrates[index])
 		u.active.Swap(u.encoders[index])
 	}
 }

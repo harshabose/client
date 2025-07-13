@@ -10,3 +10,9 @@ func WithDataChannelInit(init *webrtc.DataChannelInit) Option {
 		return nil
 	}
 }
+
+var (
+	OrderedTrue           = true
+	NegotiatedTrue        = true
+	IDOne          uint16 = 1
+)
