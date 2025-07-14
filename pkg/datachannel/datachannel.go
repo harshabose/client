@@ -12,6 +12,7 @@ type DataChannel struct {
 	label       string
 	datachannel *webrtc.DataChannel
 	init        *webrtc.DataChannelInit
+	channelOpen chan struct{}
 	ctx         context.Context
 }
 
@@ -19,6 +20,7 @@ func CreateDataChannel(ctx context.Context, label string, peerConnection *webrtc
 	dc := &DataChannel{
 		label:       label,
 		datachannel: nil,
+		channelOpen: make(chan struct{}),
 		ctx:         ctx,
 	}
 
@@ -63,6 +65,7 @@ func (dataChannel *DataChannel) Close() error {
 func (dataChannel *DataChannel) onOpen() *DataChannel {
 	dataChannel.datachannel.OnOpen(func() {
 		fmt.Printf("dataChannel Open with Label: %s\n", dataChannel.datachannel.Label())
+		dataChannel.channelOpen <- struct{}{}
 	})
 	return dataChannel
 }
@@ -72,6 +75,10 @@ func (dataChannel *DataChannel) onClose() *DataChannel {
 		fmt.Printf("dataChannel Closed with Label: %s\n", dataChannel.datachannel.Label())
 	})
 	return dataChannel
+}
+
+func (dataChannel *DataChannel) WaitUntilOpen() <-chan struct{} {
+	return dataChannel.channelOpen
 }
 
 func (dataChannel *DataChannel) DataChannel() *webrtc.DataChannel {

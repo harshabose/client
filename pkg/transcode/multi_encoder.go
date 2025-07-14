@@ -136,7 +136,7 @@ func NewMultiUpdateEncoder(ctx context.Context, config MultiConfig, builder *Gen
 	for _, bitrate := range encoder.bitrates {
 		// TODO: WARN: 90 size might be tooo high
 		// TODO: Frame pool could be abstracted away
-		producer := newDummyMediaFrameProducer(buffer.CreateChannelBuffer(ctx2, 90, buffer.CreateFramePool()), describer)
+		producer := newDummyMediaFrameProducer(buffer.CreateChannelBuffer(ctx2, 10, buffer.CreateFramePool()), describer)
 
 		if err := builder.UpdateBitrate(bitrate); err != nil {
 			return nil, err

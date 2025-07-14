@@ -12,7 +12,10 @@ func WithDataChannelInit(init *webrtc.DataChannelInit) Option {
 }
 
 var (
-	OrderedTrue           = true
-	NegotiatedTrue        = true
-	IDOne          uint16 = 1
+	OrderedTrue              = true
+	MaxRetransmits    uint16 = 2  // either MaxRetransmits or MaxPacketLifeTime can be specified at once
+	MaxPacketLifeTime uint16 = 50 // milliseconds
+	Protocol                 = "binary"
+	NegotiatedTrue           = true
+	IDOne             uint16 = 1
 )
