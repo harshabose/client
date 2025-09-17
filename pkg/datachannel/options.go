@@ -18,4 +18,5 @@ var (
 	Protocol                 = "binary"
 	NegotiatedTrue           = true
 	IDOne             uint16 = 1
+	IDTwo             uint16 = 2
 )

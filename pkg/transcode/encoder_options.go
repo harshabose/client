@@ -345,7 +345,7 @@ func WithEncoderBufferSize(size int, pool buffer.Pool[*astiav.Packet]) EncoderOp
 // 	Bitrate  string `vp8:"b"`        // Target bitrate
 // 	MinRate  string `vp8:"minrate"`  // Minimum bitrate
 // 	MaxRate  string `vp8:"maxrate"`  // Maximum bitrate
-// 	BufSize  string `vp8:"bufsize"`  // Buffer size
+// 	BufSize  string `vp8:"bufsize"`  // toSend size
 // 	CRF      string `vp8:"crf"`      // Quality setting
 // 	CPUUsed  string `vp8:"cpu-used"` // Speed preset
 // }

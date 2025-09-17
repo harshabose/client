@@ -74,6 +74,10 @@ func (o *X264AdvancedOptions) UpdateBitrate(bps int64) error {
 	return nil
 }
 
+func (o *X264AdvancedOptions) updateBitrate(bps int64) {
+	_ = o.UpdateBitrate(bps)
+}
+
 func (o *X264AdvancedOptions) GetCurrentBitrate() (int64, error) {
 	kbps, err := strconv.ParseInt(o.Bitrate, 10, 64)
 	if err != nil {
@@ -110,6 +114,11 @@ func (o *X264Options) ForEach(f func(key, value string) error) error {
 
 func (o *X264Options) UpdateBitrate(bps int64) error {
 	return o.X264AdvancedOptions.UpdateBitrate(bps)
+}
+
+func (o *X264Options) WithInitialBitrate(bps int64) *X264Options {
+	o.X264AdvancedOptions.updateBitrate(bps)
+	return o
 }
 
 // TODO: WARN: MAKING THIS A POINTER VARIABLE WILL MAKE ALL TRACKS WHICH USE THIS SETTINGS TO SHARE BITRATE

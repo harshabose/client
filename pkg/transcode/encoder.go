@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/asticode/go-astiav"
@@ -15,25 +16,28 @@ import (
 )
 
 type GeneralEncoder struct {
-	buffer          buffer.BufferWithGenerator[*astiav.Packet]
-	producer        CanProduceMediaFrame
+	buffer   buffer.BufferWithGenerator[*astiav.Packet]
+	producer CanProduceMediaFrame
+
 	codec           *astiav.Codec
 	encoderContext  *astiav.CodecContext
 	codecFlags      *astiav.Dictionary
 	encoderSettings codecSettings
 	sps             []byte
 	pps             []byte
-	ctx             context.Context
-	cancel          context.CancelFunc
+
+	once   sync.Once
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func CreateGeneralEncoder(ctx context.Context, codecID astiav.CodecID, canProduceMediaFrame CanProduceMediaFrame, options ...EncoderOption) (*GeneralEncoder, error) {
-	ctx2, cancel := context.WithCancel(ctx)
+	ctx2, cancel2 := context.WithCancel(ctx)
 	encoder := &GeneralEncoder{
 		producer:   canProduceMediaFrame,
 		codecFlags: astiav.NewDictionary(),
 		ctx:        ctx2,
-		cancel:     cancel,
+		cancel:     cancel2,
 	}
 
 	encoder.codec = astiav.FindEncoder(codecID)
@@ -154,7 +158,11 @@ func (encoder *GeneralEncoder) PutBack(packet *astiav.Packet) {
 }
 
 func (encoder *GeneralEncoder) Stop() {
-	encoder.cancel()
+	encoder.once.Do(func() {
+		if encoder.cancel != nil {
+			encoder.cancel()
+		}
+	})
 }
 
 func (encoder *GeneralEncoder) close() {

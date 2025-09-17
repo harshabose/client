@@ -12,6 +12,6 @@ const (
 )
 
 type BaseSignal interface {
-	Connect(string, string) error
+	Connect(string, *PeerConnection) error
 	Close() error
 }

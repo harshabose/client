@@ -15,14 +15,13 @@ import (
 )
 
 type OfferSignal struct {
-	peerConnection *PeerConnection
 	app            *firebase.App
 	firebaseClient *firestore.Client
 	docRef         *firestore.DocumentRef
 	ctx            context.Context
 }
 
-func CreateFirebaseOfferSignal(ctx context.Context, peerConnection *PeerConnection) *OfferSignal {
+func CreateFirebaseOfferSignal(ctx context.Context) *OfferSignal {
 	var (
 		configuration  option.ClientOption
 		app            *firebase.App
@@ -30,6 +29,7 @@ func CreateFirebaseOfferSignal(ctx context.Context, peerConnection *PeerConnecti
 		err            error
 	)
 
+	// TODO: I DO NOT LIKE THE 'PANIC' HERE. REMOVE AND RETURN A ERROR
 	if configuration, err = GetFirebaseConfiguration(); err != nil {
 		panic(err)
 	}
@@ -43,13 +43,12 @@ func CreateFirebaseOfferSignal(ctx context.Context, peerConnection *PeerConnecti
 	return &OfferSignal{
 		app:            app,
 		firebaseClient: firebaseClient,
-		peerConnection: peerConnection,
 		ctx:            ctx,
 	}
 }
 
-func (signal *OfferSignal) Connect(category, connectionLabel string) error {
-	signal.docRef = signal.firebaseClient.Collection(category).Doc(connectionLabel)
+func (signal *OfferSignal) Connect(category string, pc *PeerConnection) error {
+	signal.docRef = signal.firebaseClient.Collection(category).Doc(pc.label)
 	_, err := signal.docRef.Get(signal.ctx)
 
 	if err != nil && status.Code(err) != codes.NotFound {
@@ -63,12 +62,12 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 		}
 	}
 
-	offer, err := signal.peerConnection.peerConnection.CreateOffer(nil)
+	offer, err := pc.peerConnection.CreateOffer(nil)
 	if err != nil {
 		return fmt.Errorf("error while creating offer: %w", err)
 	}
 
-	if err := signal.peerConnection.peerConnection.SetLocalDescription(offer); err != nil {
+	if err := pc.peerConnection.SetLocalDescription(offer); err != nil {
 		return fmt.Errorf("error while setting local sdp: %w", err)
 	}
 
@@ -76,7 +75,7 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 	defer timer.Stop()
 
 	select {
-	case <-webrtc.GatheringCompletePromise(signal.peerConnection.peerConnection):
+	case <-webrtc.GatheringCompletePromise(pc.peerConnection):
 		fmt.Println("ICE Gathering complete")
 	case <-timer.C:
 		return errors.New("failed to gather ICE candidates within 30 seconds")
@@ -85,7 +84,7 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 	if _, err = signal.docRef.Set(signal.ctx, map[string]interface{}{
 		FieldOffer: map[string]interface{}{
 			FieldCreatedAt: firestore.ServerTimestamp,
-			FieldSDP:       signal.peerConnection.peerConnection.LocalDescription().SDP,
+			FieldSDP:       pc.peerConnection.LocalDescription().SDP,
 			FieldUpdatedAt: firestore.ServerTimestamp,
 		},
 		FieldStatus: FieldStatusPending,
@@ -95,10 +94,10 @@ func (signal *OfferSignal) Connect(category, connectionLabel string) error {
 
 	fmt.Println("Offer updated in firestore. Waiting for peer connection...")
 
-	return signal.offer()
+	return signal.offer(pc)
 }
 
-func (signal *OfferSignal) offer() error {
+func (signal *OfferSignal) offer(pc *PeerConnection) error {
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -123,7 +122,7 @@ loop:
 			if !ok {
 				continue loop
 			}
-			if err = signal.peerConnection.peerConnection.SetRemoteDescription(webrtc.SessionDescription{
+			if err = pc.peerConnection.SetRemoteDescription(webrtc.SessionDescription{
 				Type: webrtc.SDPTypeAnswer,
 				SDP:  sdp,
 			}); err != nil {
@@ -139,5 +138,10 @@ loop:
 }
 
 func (signal *OfferSignal) Close() error {
-	return signal.firebaseClient.Close()
+	if err := signal.firebaseClient.Close(); err != nil {
+		fmt.Printf("failed to close firebase client with error: %v\n", err)
+		return err
+	}
+
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"reflect"
 	"sync"
 	"time"
@@ -70,8 +71,13 @@ func (s *Sink) readRTPReceiver(rtcpBuf []byte) {
 func (s *Sink) rtpReceiverLoop() {
 	// THIS IS NEEDED AS interceptors (pion) do not work
 	for {
-		rtcpBuf := make([]byte, 1500)
-		s.readRTPReceiver(rtcpBuf)
+		select {
+		case <-s.ctx.Done():
+			return
+		default:
+			rtcpBuf := make([]byte, 1500)
+			s.readRTPReceiver(rtcpBuf)
+		}
 	}
 }
 
@@ -106,7 +112,7 @@ func (s *Sinks) onTrack(pc *webrtc.PeerConnection) {
 	pc.OnTrack(func(remote *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		sink, err := s.GetSink(remote.ID())
 		if err != nil {
-			fmt.Println(err.Error())
+			fmt.Printf("failed to trigger on track callback with err: %v\n", err)
 			// TODO: MAYBE SET A DEFAULT SINK?
 			return
 		}
@@ -150,6 +156,16 @@ func (s *Sinks) GetSink(label string) (*Sink, error) {
 	}
 
 	return sink, nil
+}
+
+func (s *Sinks) Sinks() iter.Seq2[string, *Sink] {
+	return func(yield func(string, *Sink) bool) {
+		for id, sink := range s.sinks {
+			if !yield(id, sink) {
+				return
+			}
+		}
+	}
 }
 
 func CompareRTPCodecParameters(a, b webrtc.RTPCodecParameters) bool {

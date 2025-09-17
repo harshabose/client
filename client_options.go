@@ -10,16 +10,15 @@ import (
 	"github.com/pion/interceptor/pkg/jitterbuffer"
 	"github.com/pion/interceptor/pkg/nack"
 	"github.com/pion/interceptor/pkg/report"
+	"github.com/pion/interceptor/pkg/stats"
 	"github.com/pion/interceptor/pkg/twcc"
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v4"
-
-	"github.com/harshabose/simple_webrtc_comm/client/pkg/mediasource"
 )
 
 type ClientOption = func(*Client) error
 
-func WithH264MediaEngine(clockrate uint32, packetisationMode mediasource.PacketisationMode, profileLevelID mediasource.ProfileLevel, sps, pps string) ClientOption {
+func WithH264MediaEngine(clockrate uint32) ClientOption {
 	return func(client *Client) error {
 		RTCPFeedback := []webrtc.RTCPFeedback{{Type: webrtc.TypeRTCPFBGoogREMB}, {Type: webrtc.TypeRTCPFBCCM, Parameter: "fir"}, {Type: webrtc.TypeRTCPFBNACK}, {Type: webrtc.TypeRTCPFBNACK, Parameter: "pli"}}
 		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
@@ -27,7 +26,7 @@ func WithH264MediaEngine(clockrate uint32, packetisationMode mediasource.Packeti
 				MimeType:     webrtc.MimeTypeH264,
 				ClockRate:    clockrate,
 				Channels:     0,
-				SDPFmtpLine:  fmt.Sprintf("level-asymmetry-allowed=1;packetization-mode=%d;profile-level-id=%s;sprop-parameter-sets=%s,%s", packetisationMode, profileLevelID, sps, pps),
+				SDPFmtpLine:  fmt.Sprintf("level-asymmetry-allowed=1"),
 				RTCPFeedback: RTCPFeedback,
 			},
 			PayloadType: H264PayloadType,
@@ -101,7 +100,7 @@ func WithDefaultInterceptorRegistry() ClientOption {
 	}
 }
 
-func WithOpusMediaEngine(samplerate uint32, channelLayout uint16, stereo mediasource.StereoType) ClientOption {
+func WithOpusMediaEngine(samplerate uint32, channelLayout uint16) ClientOption {
 	return func(client *Client) error {
 		if err := client.mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 			RTPCodecCapability: webrtc.RTPCodecCapability{
@@ -109,7 +108,7 @@ func WithOpusMediaEngine(samplerate uint32, channelLayout uint16, stereo mediaso
 				ClockRate:    samplerate,
 				Channels:     channelLayout,
 				RTCPFeedback: nil,
-				SDPFmtpLine:  fmt.Sprintf("minptime=10;useinbandfec=1;stereo=%d", stereo),
+				SDPFmtpLine:  fmt.Sprintf("minptime=10;useinbandfec=1"),
 			},
 			PayloadType: OpusPayloadType,
 		}, webrtc.RTPCodecTypeAudio); err != nil {
@@ -244,5 +243,22 @@ func WithBandwidthControlInterceptor(initialBitrate, minimumBitrate, maximumBitr
 func WithTWCCHeaderExtensionSender() ClientOption {
 	return func(client *Client) error {
 		return webrtc.ConfigureTWCCHeaderExtensionSender(client.mediaEngine, client.interceptorRegistry)
+	}
+}
+
+func WithStatsCollector() ClientOption {
+	return func(c *Client) error {
+		g, err := stats.NewInterceptor()
+		if err != nil {
+			return err
+		}
+
+		g.OnNewPeerConnection(func(id string, getter stats.Getter) {
+			c.getterChan <- getter
+		})
+
+		c.interceptorRegistry.Add(g)
+
+		return nil
 	}
 }

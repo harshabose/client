@@ -23,12 +23,7 @@ type firebaseConfig struct {
 }
 
 func GetFirebaseConfiguration() (option.ClientOption, error) {
-	var (
-		config      firebaseConfig
-		err         error
-		configBytes []byte
-	)
-	config = firebaseConfig{
+	config := firebaseConfig{
 		Type:                    os.Getenv("FIREBASE_TYPE"),
 		ProjectID:               os.Getenv("FIREBASE_PROJECT_ID"),
 		PrivateKeyID:            os.Getenv("FIREBASE_PRIVATE_KEY_ID"),
@@ -42,7 +37,8 @@ func GetFirebaseConfiguration() (option.ClientOption, error) {
 		UniverseDomain:          os.Getenv("FIREBASE_UNIVERSE_DOMAIN"),
 	}
 
-	if configBytes, err = json.Marshal(config); err != nil {
+	configBytes, err := json.Marshal(config)
+	if err != nil {
 		return nil, err
 	}
 	return option.WithCredentialsJSON(configBytes), nil

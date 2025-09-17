@@ -4,15 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 
 	"github.com/pion/webrtc/v4"
+
+	"github.com/harshabose/tools/pkg/multierr"
 )
 
 type DataChannel struct {
 	label       string
 	datachannel *webrtc.DataChannel
 	init        *webrtc.DataChannelInit
-	channelOpen chan struct{}
 	ctx         context.Context
 }
 
@@ -20,7 +22,6 @@ func CreateDataChannel(ctx context.Context, label string, peerConnection *webrtc
 	dc := &DataChannel{
 		label:       label,
 		datachannel: nil,
-		channelOpen: make(chan struct{}),
 		ctx:         ctx,
 	}
 
@@ -50,39 +51,35 @@ func CreateRawDataChannel(ctx context.Context, channel *webrtc.DataChannel) (*Da
 	return dataChannel.onOpen().onClose(), nil
 }
 
-func (dataChannel *DataChannel) GetLabel() string {
-	return dataChannel.label
+func (dc *DataChannel) GetLabel() string {
+	return dc.label
 }
 
-func (dataChannel *DataChannel) Close() error {
-	if err := dataChannel.datachannel.Close(); err != nil {
+func (dc *DataChannel) Close() error {
+	if err := dc.datachannel.Close(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (dataChannel *DataChannel) onOpen() *DataChannel {
-	dataChannel.datachannel.OnOpen(func() {
-		fmt.Printf("dataChannel Open with Label: %s\n", dataChannel.datachannel.Label())
-		dataChannel.channelOpen <- struct{}{}
+func (dc *DataChannel) onOpen() *DataChannel {
+	dc.datachannel.OnOpen(func() {
+		fmt.Printf("data channel (id=%s) opened\n", dc.datachannel.Label())
 	})
-	return dataChannel
+
+	return dc
 }
 
-func (dataChannel *DataChannel) onClose() *DataChannel {
-	dataChannel.datachannel.OnClose(func() {
-		fmt.Printf("dataChannel Closed with Label: %s\n", dataChannel.datachannel.Label())
+func (dc *DataChannel) onClose() *DataChannel {
+	dc.datachannel.OnClose(func() {
+		fmt.Printf("data channel (id=%s) closed\n", dc.datachannel.Label())
 	})
-	return dataChannel
+	return dc
 }
 
-func (dataChannel *DataChannel) WaitUntilOpen() <-chan struct{} {
-	return dataChannel.channelOpen
-}
-
-func (dataChannel *DataChannel) DataChannel() *webrtc.DataChannel {
-	return dataChannel.datachannel
+func (dc *DataChannel) DataChannel() *webrtc.DataChannel {
+	return dc.datachannel
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -137,10 +134,23 @@ func (dataChannels *DataChannels) GetDataChannel(label string) (*DataChannel, er
 	return dataChannel, nil
 }
 
-func (dataChannels *DataChannels) Close(label string) (err error) {
-	if err = dataChannels.datachannel[label].Close(); err == nil {
-		return nil
+func (dataChannels *DataChannels) DataChannels() iter.Seq2[string, *DataChannel] {
+	return func(yield func(string, *DataChannel) bool) {
+		for id, channel := range dataChannels.datachannel {
+			if !yield(id, channel) {
+				return
+			}
+		}
 	}
-	delete(dataChannels.datachannel, label)
-	return err
+}
+
+func (dataChannels *DataChannels) Close() error {
+	var merr error
+	for label, datachannel := range dataChannels.datachannel {
+		if err := datachannel.Close(); err != nil {
+			merr = multierr.Append(merr, err)
+		}
+		delete(dataChannels.datachannel, label)
+	}
+	return merr
 }

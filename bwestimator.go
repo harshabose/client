@@ -1,39 +1,46 @@
-//go:build cgo_enabled
-
 package client
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"sync"
 	"time"
 
 	"github.com/pion/interceptor/pkg/cc"
 
 	"github.com/harshabose/simple_webrtc_comm/client/pkg/mediasource"
-	"github.com/harshabose/simple_webrtc_comm/client/pkg/transcode"
+	"github.com/harshabose/tools/pkg/multierr"
 )
+
+type UpdateBitrateCallBack = func(bps int64) error
 
 type subscriber struct {
 	id       string // unique identifier
 	priority mediasource.Priority
-	callback transcode.UpdateBitrateCallBack
+	callback UpdateBitrateCallBack
 }
 
 type BWEController struct {
 	estimator cc.BandwidthEstimator
 	interval  time.Duration
-	subs      []subscriber
+	subs      map[string]*subscriber
+	once      sync.Once
 	mux       sync.RWMutex
+	wg        sync.WaitGroup
 	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 func createBWController(ctx context.Context) *BWEController {
+	ctx2, cancel2 := context.WithCancel(ctx)
+
 	return &BWEController{
-		subs:      make([]subscriber, 0),
+		subs:      make(map[string]*subscriber),
 		estimator: nil,
-		ctx:       ctx,
+		ctx:       ctx2,
+		cancel:    cancel2,
 	}
 }
 
@@ -41,41 +48,40 @@ func (bwc *BWEController) Start() {
 	go bwc.loop()
 }
 
-func (bwc *BWEController) Subscribe(id string, priority mediasource.Priority, callback transcode.UpdateBitrateCallBack) error {
+func (bwc *BWEController) Subscribe(id string, priority mediasource.Priority, callback UpdateBitrateCallBack) error {
 	bwc.mux.Lock()
 	defer bwc.mux.Unlock()
 
-	for _, sub := range bwc.subs {
-		if sub.id == id {
-			return errors.New("subscriber already exists")
-		}
+	if _, exists := bwc.subs[id]; exists {
+		return errors.New("subscriber already exists")
 	}
 
-	bwc.subs = append(bwc.subs, subscriber{
+	bwc.subs[id] = &subscriber{
 		id:       id,
 		priority: priority,
 		callback: callback,
-	})
+	}
 
 	return nil
 }
 
-// getSubscribers returns a copy of subscribers for safe iteration
-func (bwc *BWEController) getSubscribers() []subscriber {
-	bwc.mux.RLock()
-	defer bwc.mux.RUnlock()
+func (bwc *BWEController) subscribers() iter.Seq2[string, *subscriber] {
+	return func(yield func(string, *subscriber) bool) {
+		bwc.mux.RLock()
+		defer bwc.mux.RUnlock()
 
-	// Return a copy to avoid holding the lock during iteration
-	subs := make([]subscriber, len(bwc.subs))
-	copy(subs, bwc.subs)
-	return subs
+		for id, sub := range bwc.subs {
+			if !yield(id, sub) {
+				return
+			}
+		}
+	}
 }
 
-// calculateTotalPriority calculates sum of all subscriber priorities
-func (bwc *BWEController) calculateTotalPriority(subs []subscriber) mediasource.Priority {
+func (bwc *BWEController) calculateTotalPriority() mediasource.Priority {
 	var totalPriority = mediasource.Level0
 
-	for _, sub := range subs {
+	for _, sub := range bwc.subscribers() {
 		totalPriority += sub.priority
 	}
 
@@ -83,6 +89,9 @@ func (bwc *BWEController) calculateTotalPriority(subs []subscriber) mediasource.
 }
 
 func (bwc *BWEController) loop() {
+	bwc.wg.Add(1)
+	defer bwc.wg.Done()
+
 	ticker := time.NewTicker(bwc.interval)
 	defer ticker.Stop()
 
@@ -95,12 +104,7 @@ func (bwc *BWEController) loop() {
 				continue
 			}
 
-			subs := bwc.getSubscribers()
-			if len(subs) == 0 {
-				continue
-			}
-
-			totalPriority := bwc.calculateTotalPriority(subs)
+			totalPriority := bwc.calculateTotalPriority()
 			if totalPriority == mediasource.Level0 {
 				continue // No active priorities
 			}
@@ -110,28 +114,18 @@ func (bwc *BWEController) loop() {
 				continue
 			}
 
-			// Process each subscriber
-			for _, sub := range subs {
+			for _, sub := range bwc.subscribers() {
 				if sub.priority == mediasource.Level0 {
 					continue
 				}
-
 				bitrate := int64(float64(totalBitrate) * float64(sub.priority) / float64(totalPriority))
-				go bwc.sendBitrateUpdate(len(subs), sub.callback, bitrate)
+				go bwc.sendBitrateUpdate(sub.id, sub.callback, bitrate)
 			}
 		}
 	}
 }
 
-func (bwc *BWEController) sendBitrateUpdate(n int, callback transcode.UpdateBitrateCallBack, bitrate int64) {
-	timeout := bwc.interval
-	if n > 0 {
-		timeout = bwc.interval / time.Duration(n)
-	}
-
-	ctx, cancel := context.WithTimeout(bwc.ctx, timeout)
-	defer cancel()
-
+func (bwc *BWEController) sendBitrateUpdate(id string, callback UpdateBitrateCallBack, bitrate int64) {
 	done := make(chan error, 1)
 
 	go func() {
@@ -141,15 +135,14 @@ func (bwc *BWEController) sendBitrateUpdate(n int, callback transcode.UpdateBitr
 	select {
 	case err := <-done:
 		if err != nil {
-			fmt.Printf("bitrate update callback failed: %v\n", err)
+			fmt.Printf("bitrate update callback (id=%s) failed: %v. Unsubscribing...\n", id, err)
+			if err := bwc.Unsubscribe(id); err != nil {
+				fmt.Printf(err.Error())
+			}
 			return
 		}
-	case <-ctx.Done():
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			fmt.Println("bitrate update callback timed out")
-			return
-		}
-		fmt.Println("bitrate update callback cancelled")
+	case <-bwc.ctx.Done():
+		return
 	}
 }
 
@@ -164,14 +157,34 @@ func (bwc *BWEController) Unsubscribe(id string) error {
 	bwc.mux.Lock()
 	defer bwc.mux.Unlock()
 
-	for i, sub := range bwc.subs {
-		if sub.id == id {
-			// Remove the subscriber by swapping with the last element
-			bwc.subs[i] = bwc.subs[len(bwc.subs)-1]
-			bwc.subs = bwc.subs[:len(bwc.subs)-1]
-			return nil
-		}
+	if _, exists := bwc.subs[id]; !exists {
+		return errors.New("subscriber not found")
 	}
 
-	return errors.New("subscriber not found")
+	delete(bwc.subs, id)
+	return nil
+}
+
+func (bwc *BWEController) Close() error {
+	var merr error = nil
+
+	bwc.once.Do(func() {
+		if bwc.cancel != nil {
+			bwc.cancel()
+		}
+
+		bwc.wg.Wait()
+
+		bwc.mux.Lock()
+		defer bwc.mux.Unlock()
+
+		if err := bwc.estimator.Close(); err != nil {
+			merr = multierr.Append(merr, err)
+		}
+
+		bwc.subs = nil
+		return
+	})
+
+	return merr
 }

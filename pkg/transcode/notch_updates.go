@@ -11,8 +11,8 @@ package transcode
 // 	"time"
 //
 // 	"github.com/aler9/gomavlib"
-// 	"github.com/aler9/gomavlib/pkg/dialects/ardupilotmega"
-// 	"github.com/aler9/gomavlib/pkg/dialects/common"
+// 	"github.com/aler9/gomavlib/internal/dialects/ardupilotmega"
+// 	"github.com/aler9/gomavlib/internal/dialects/common"
 // 	"github.com/asticode/go-astiav"
 // )
 //
@@ -128,7 +128,7 @@ package transcode
 // 		select {
 // 		case <-update.ctx.Done():
 // 			return
-// 		case <-ticker.C:
+// 		case <-ticker.c:
 // 			update.node.WriteMessageAll(&ardupilotmega.MessageCommandLong{
 // 				TargetSystem:    1,
 // 				TargetComponent: 0,
@@ -213,7 +213,7 @@ package transcode
 // 		select {
 // 		case <-update.ctx.Done():
 // 			return
-// 		case <-ticker.C:
+// 		case <-ticker.c:
 // 			if err := update.update(filter); err != nil {
 // 				fmt.Printf("Error updating notch filter: %v\n", err)
 // 			}

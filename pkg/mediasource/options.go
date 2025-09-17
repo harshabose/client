@@ -6,10 +6,10 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-type TrackOption = func(*Track) error
+type TrackOption = func(*track) error
 
-func WithH264Track(clockrate uint32, packetisationMode PacketisationMode, profileLevel ProfileLevel) TrackOption {
-	return func(track *Track) error {
+func WithH264Track(clockrate uint32) TrackOption {
+	return func(track *track) error {
 		if track.codecCapability != nil {
 			return errors.New("multiple tracks are not supported on single media source")
 		}
@@ -23,7 +23,7 @@ func WithH264Track(clockrate uint32, packetisationMode PacketisationMode, profil
 }
 
 func WithVP8Track(clockrate uint32) TrackOption {
-	return func(track *Track) error {
+	return func(track *track) error {
 		if track.codecCapability != nil {
 			return errors.New("multiple tracks are not supported on single media source")
 		}
@@ -36,8 +36,8 @@ func WithVP8Track(clockrate uint32) TrackOption {
 	}
 }
 
-func WithOpusTrack(samplerate uint32, channelLayout uint16, stereo StereoType) TrackOption {
-	return func(track *Track) error {
+func WithOpusTrack(samplerate uint32, channelLayout uint16) TrackOption {
+	return func(track *track) error {
 		if track.codecCapability != nil {
 			return errors.New("multiple tracks are not supported on single media source")
 		}
@@ -51,7 +51,7 @@ func WithOpusTrack(samplerate uint32, channelLayout uint16, stereo StereoType) T
 }
 
 func WithPriority(level Priority) TrackOption {
-	return func(track *Track) error {
+	return func(track *track) error {
 		track.priority = level
 		return nil
 	}

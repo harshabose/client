@@ -5,22 +5,26 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
-	"github.com/pion/webrtc/v4/pkg/media"
 
 	"github.com/harshabose/mediapipe/pkg/consumers"
 )
 
-// NO BUFFER IMPLEMENTATION
+type track struct {
+	codecCapability *webrtc.RTPCodecCapability
+	rtpSender       *webrtc.RTPSender
+	priority        Priority
+}
 
-type Track struct {
+type RTPTrack struct {
 	*track
-	consumer consumers.CanConsumePionSamplePacket
+	consumer consumers.CanConsumePionRTPPackets
 	ctx      context.Context
 }
 
-func CreateTrack(ctx context.Context, label string, peerConnection *webrtc.PeerConnection, options ...TrackOption) (*Track, error) {
-	track := &Track{
+func CreateRTPTrack(ctx context.Context, label string, pc *webrtc.PeerConnection, options ...TrackOption) (*RTPTrack, error) {
+	track := &RTPTrack{
 		track: &track{},
 		ctx:   ctx,
 	}
@@ -35,13 +39,13 @@ func CreateTrack(ctx context.Context, label string, peerConnection *webrtc.PeerC
 		return nil, errors.New("no track capabilities given")
 	}
 
-	consumer, err := webrtc.NewTrackLocalStaticSample(*track.codecCapability, label, "webrtc")
+	consumer, err := webrtc.NewTrackLocalStaticRTP(*track.codecCapability, label, "webrtc")
 	if err != nil {
 		return nil, err
 	}
 	track.consumer = consumer
 
-	if track.rtpSender, err = peerConnection.AddTrack(consumer); err != nil {
+	if track.rtpSender, err = pc.AddTrack(consumer); err != nil {
 		return nil, err
 	}
 
@@ -50,11 +54,11 @@ func CreateTrack(ctx context.Context, label string, peerConnection *webrtc.PeerC
 	return track, nil
 }
 
-func (track *Track) GetPriority() Priority {
+func (track *RTPTrack) GetPriority() Priority {
 	return track.priority
 }
 
-func (track *Track) rtpSenderLoop() {
+func (track *RTPTrack) rtpSenderLoop() {
 	// THIS IS NEEDED AS interceptors (pion) doesnt work
 	for {
 		select {
@@ -69,9 +73,9 @@ func (track *Track) rtpSenderLoop() {
 	}
 }
 
-func (track *Track) WriteSample(sample media.Sample) error {
-	if err := track.consumer.WriteSample(sample); err != nil {
-		return err
+func (track *RTPTrack) WriteRTP(packet *rtp.Packet) error {
+	if err := track.consumer.WriteRTP(packet); err != nil {
+		fmt.Printf("error while writing samples to track (id: ); err; %v. Continuing...", err)
 	}
 
 	return nil

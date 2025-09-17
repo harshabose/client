@@ -31,9 +31,5 @@ func GetRTCConfiguration() webrtc.Configuration {
 				CredentialType: webrtc.ICECredentialTypePassword,
 			},
 		},
-		ICETransportPolicy: webrtc.ICETransportPolicyAll,
-		BundlePolicy:       webrtc.BundlePolicyMaxCompat,
-		RTCPMuxPolicy:      webrtc.RTCPMuxPolicyRequire,
-		SDPSemantics:       webrtc.SDPSemanticsUnifiedPlan,
 	}
 }
