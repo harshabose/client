@@ -3,7 +3,6 @@ package mediasource
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
@@ -63,7 +62,7 @@ func (track *Track) rtpSenderLoop() {
 		default:
 			rtcpBuf := make([]byte, 1500)
 			if _, _, err := track.rtpSender.Read(rtcpBuf); err != nil {
-				fmt.Println("error while reading rtcp packets")
+				// fmt.Println("error while reading rtcp packets")
 			}
 		}
 	}

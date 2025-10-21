@@ -24,10 +24,11 @@ type firebaseConfig struct {
 
 func GetFirebaseConfiguration() (option.ClientOption, error) {
 	config := firebaseConfig{
-		Type:                    os.Getenv("FIREBASE_TYPE"),
-		ProjectID:               os.Getenv("FIREBASE_PROJECT_ID"),
-		PrivateKeyID:            os.Getenv("FIREBASE_PRIVATE_KEY_ID"),
-		PrivateKey:              strings.ReplaceAll(os.Getenv("FIREBASE_PRIVATE_KEY"), "\\n", "\n"),
+		Type:         os.Getenv("FIREBASE_TYPE"),
+		ProjectID:    os.Getenv("FIREBASE_PROJECT_ID"),
+		PrivateKeyID: os.Getenv("FIREBASE_PRIVATE_KEY_ID"),
+		PrivateKey:   strings.ReplaceAll(os.Getenv("FIREBASE_PRIVATE_KEY"), "\\n", "\n"),
+		// PrivateKey:              os.Getenv("FIREBASE_PRIVATE_KEY"),
 		ClientEmail:             os.Getenv("FIREBASE_CLIENT_EMAIL"),
 		ClientID:                os.Getenv("FIREBASE_CLIENT_ID"),
 		AuthURI:                 os.Getenv("FIREBASE_AUTH_URI"),

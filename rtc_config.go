@@ -6,7 +6,7 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-func GetRTCConfiguration() webrtc.Configuration {
+func GetFullRTCConfiguration() webrtc.Configuration {
 	return webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
@@ -29,6 +29,16 @@ func GetRTCConfiguration() webrtc.Configuration {
 				Username:       os.Getenv("TURN_SERVER_USERNAME"),
 				Credential:     os.Getenv("TURN_SERVER_PASSWORD"),
 				CredentialType: webrtc.ICECredentialTypePassword,
+			},
+		},
+	}
+}
+
+func GetSTUNOnlyRTCConfiguration() webrtc.Configuration {
+	return webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{os.Getenv("STUN_SERVER_URL")},
 			},
 		},
 	}

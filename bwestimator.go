@@ -136,10 +136,7 @@ func (bwc *BWEController) sendBitrateUpdate(id string, callback UpdateBitrateCal
 	case err := <-done:
 		if err != nil {
 			fmt.Printf("bitrate update callback (id=%s) failed: %v. Unsubscribing...\n", id, err)
-			if err := bwc.Unsubscribe(id); err != nil {
-				fmt.Printf(err.Error())
-			}
-			return
+			bwc.Unsubscribe(id)
 		}
 	case <-bwc.ctx.Done():
 		return
@@ -153,16 +150,15 @@ func (bwc *BWEController) getBitrate() (int, error) {
 	return bwc.estimator.GetTargetBitrate(), nil
 }
 
-func (bwc *BWEController) Unsubscribe(id string) error {
+func (bwc *BWEController) Unsubscribe(id string) {
 	bwc.mux.Lock()
 	defer bwc.mux.Unlock()
 
 	if _, exists := bwc.subs[id]; !exists {
-		return errors.New("subscriber not found")
+		return
 	}
 
 	delete(bwc.subs, id)
-	return nil
 }
 
 func (bwc *BWEController) Close() error {
@@ -177,6 +173,10 @@ func (bwc *BWEController) Close() error {
 
 		bwc.mux.Lock()
 		defer bwc.mux.Unlock()
+
+		if bwc.estimator == nil {
+			return
+		}
 
 		if err := bwc.estimator.Close(); err != nil {
 			merr = multierr.Append(merr, err)

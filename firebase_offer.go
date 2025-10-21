@@ -14,14 +14,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type OfferSignal struct {
+type FirebaseOfferSignal struct {
 	app            *firebase.App
 	firebaseClient *firestore.Client
 	docRef         *firestore.DocumentRef
 	ctx            context.Context
 }
 
-func CreateFirebaseOfferSignal(ctx context.Context) *OfferSignal {
+func CreateFirebaseOfferSignal(ctx context.Context) (*FirebaseOfferSignal, error) {
 	var (
 		configuration  option.ClientOption
 		app            *firebase.App
@@ -29,25 +29,24 @@ func CreateFirebaseOfferSignal(ctx context.Context) *OfferSignal {
 		err            error
 	)
 
-	// TODO: I DO NOT LIKE THE 'PANIC' HERE. REMOVE AND RETURN A ERROR
 	if configuration, err = GetFirebaseConfiguration(); err != nil {
-		panic(err)
+		return nil, err
 	}
 	if app, err = firebase.NewApp(ctx, nil, configuration); err != nil {
-		panic(err)
+		return nil, err
 	}
 	if firebaseClient, err = app.Firestore(ctx); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return &OfferSignal{
+	return &FirebaseOfferSignal{
 		app:            app,
 		firebaseClient: firebaseClient,
 		ctx:            ctx,
-	}
+	}, nil
 }
 
-func (signal *OfferSignal) Connect(category string, pc *PeerConnection) error {
+func (signal *FirebaseOfferSignal) Connect(category string, pc *PeerConnection) error {
 	signal.docRef = signal.firebaseClient.Collection(category).Doc(pc.label)
 	_, err := signal.docRef.Get(signal.ctx)
 
@@ -97,7 +96,7 @@ func (signal *OfferSignal) Connect(category string, pc *PeerConnection) error {
 	return signal.offer(pc)
 }
 
-func (signal *OfferSignal) offer(pc *PeerConnection) error {
+func (signal *FirebaseOfferSignal) offer(pc *PeerConnection) error {
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -126,7 +125,7 @@ loop:
 				Type: webrtc.SDPTypeAnswer,
 				SDP:  sdp,
 			}); err != nil {
-				fmt.Printf("error while setting remote description: %s", err.Error())
+				fmt.Printf("error while setting remote description: %s\n", err.Error())
 				continue loop
 			}
 
@@ -137,7 +136,7 @@ loop:
 	return nil
 }
 
-func (signal *OfferSignal) Close() error {
+func (signal *FirebaseOfferSignal) Close() error {
 	if err := signal.firebaseClient.Close(); err != nil {
 		fmt.Printf("failed to close firebase client with error: %v\n", err)
 		return err

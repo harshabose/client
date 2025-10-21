@@ -54,18 +54,20 @@ func (s *Sink) setRTPReceiver(receiver *webrtc.RTPReceiver) {
 	s.rtpReceiver = receiver
 }
 
-func (s *Sink) readRTPReceiver(rtcpBuf []byte) {
+func (s *Sink) readRTPReceiver(rtcpBuf []byte) error {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
 	if s.rtpReceiver == nil {
 		time.Sleep(10 * time.Millisecond)
-		return
+		return nil
 	}
 
 	if _, _, err := s.rtpReceiver.Read(rtcpBuf); err != nil {
-		fmt.Printf("error while reading rtcp packets")
+		fmt.Printf("error while reading rtcp packets (err=%v)\n", err)
+		return err
 	}
+	return nil
 }
 
 func (s *Sink) rtpReceiverLoop() {
@@ -76,7 +78,9 @@ func (s *Sink) rtpReceiverLoop() {
 			return
 		default:
 			rtcpBuf := make([]byte, 1500)
-			s.readRTPReceiver(rtcpBuf)
+			if err := s.readRTPReceiver(rtcpBuf); err != nil {
+				return
+			}
 		}
 	}
 }

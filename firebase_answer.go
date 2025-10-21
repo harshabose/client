@@ -22,7 +22,7 @@ type AnswerSignal struct {
 	ctx    context.Context
 }
 
-func CreateFirebaseAnswerSignal(ctx context.Context) *AnswerSignal {
+func CreateFirebaseAnswerSignal(ctx context.Context) (*AnswerSignal, error) {
 	var (
 		configuration option.ClientOption
 		app           *firebase.App
@@ -31,20 +31,20 @@ func CreateFirebaseAnswerSignal(ctx context.Context) *AnswerSignal {
 	)
 
 	if configuration, err = GetFirebaseConfiguration(); err != nil {
-		panic(err)
+		return nil, err
 	}
 	if app, err = firebase.NewApp(ctx, nil, configuration); err != nil {
-		panic(err)
+		return nil, err
 	}
 	if client, err = app.Firestore(ctx); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return &AnswerSignal{
 		app:    app,
 		client: client,
 		ctx:    ctx,
-	}
+	}, nil
 }
 
 func (signal *AnswerSignal) Connect(category string, pc *PeerConnection) error {

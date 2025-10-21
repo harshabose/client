@@ -310,23 +310,39 @@ func (pc *PeerConnection) GetBWEstimator() (*BWEController, error) {
 }
 
 func (pc *PeerConnection) Close() error {
+	fmt.Printf("[PeerConnection] Starting close for peer connection: %s\n", pc.label)
+
 	var merr error
 	pc.once.Do(func() {
+		fmt.Printf("[PeerConnection] Canceling context for peer: %s\n", pc.label)
 		if pc.cancel != nil {
 			pc.cancel()
 		}
 
-		if pc.dataChannels != nil {
-			merr = multierr.Append(merr, pc.dataChannels.Close())
+		fmt.Printf("[PeerConnection] Closing underlying WebRTC peer connection for: %s\n", pc.label)
+		if err := pc.peerConnection.Close(); err != nil {
+			fmt.Printf("[PeerConnection] ERROR: Failed to close WebRTC peer connection for %s: %v\n", pc.label, err)
+			merr = multierr.Append(merr, err)
+		} else {
+			fmt.Printf("[PeerConnection] ✓ WebRTC peer connection closed for: %s\n", pc.label)
 		}
 
 		if pc.bwc != nil {
-			merr = multierr.Append(merr, pc.bwc.Close())
+			fmt.Printf("[PeerConnection] Closing bandwidth controller for: %s\n", pc.label)
+			if err := pc.bwc.Close(); err != nil {
+				fmt.Printf("[PeerConnection] ERROR: Failed to close bandwidth controller for %s: %v\n", pc.label, err)
+				merr = multierr.Append(merr, err)
+			} else {
+				fmt.Printf("[PeerConnection] ✓ Bandwidth controller closed for: %s\n", pc.label)
+			}
+		}
+
+		if merr == nil {
+			fmt.Printf("[PeerConnection] ✓ Successfully closed peer connection: %s\n", pc.label)
+		} else {
+			fmt.Printf("[PeerConnection] ⚠ Peer connection closed with errors for %s: %v\n", pc.label, merr)
 		}
 	})
 
-	// clear tracks if any
-	// clear sinks if any
-	// clear bwc ??
-	return pc.peerConnection.Close()
+	return merr
 }
