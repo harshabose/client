@@ -11,7 +11,6 @@ import (
 	"github.com/pion/interceptor/pkg/cc"
 
 	"github.com/harshabose/simple_webrtc_comm/client/pkg/mediasource"
-	"github.com/harshabose/tools/pkg/multierr"
 )
 
 type UpdateBitrateCallBack = func(bps int64) error
@@ -178,9 +177,10 @@ func (bwc *BWEController) Close() error {
 			return
 		}
 
-		if err := bwc.estimator.Close(); err != nil {
-			merr = multierr.Append(merr, err)
-		}
+		// NOTE: CLOSED BY PC
+		// if err := bwc.estimator.Close(); err != nil {
+		// 	merr = multierr.Append(merr, err)
+		// }
 
 		bwc.subs = nil
 		return

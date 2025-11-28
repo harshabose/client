@@ -19,4 +19,5 @@ var (
 	NegotiatedTrue           = true
 	IDOne             uint16 = 1
 	IDTwo             uint16 = 2
+	IDThree           uint16 = 3
 )

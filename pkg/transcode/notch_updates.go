@@ -122,7 +122,7 @@ package transcode
 //
 // func (update *PropNoiseFilterUpdator) loop1() {
 // 	ticker := time.NewTicker(update.interval)
-// 	defer ticker.Stop()
+// 	defer ticker.Close()
 //
 // 	for {
 // 		select {
@@ -207,7 +207,7 @@ package transcode
 //
 // func (update *PropNoiseFilterUpdator) loop3(filter *GeneralFilter) {
 // 	ticker := time.NewTicker(update.interval)
-// 	defer ticker.Stop()
+// 	defer ticker.Close()
 //
 // 	for {
 // 		select {

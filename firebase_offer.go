@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -70,14 +69,10 @@ func (signal *FirebaseOfferSignal) Connect(category string, pc *PeerConnection) 
 		return fmt.Errorf("error while setting local sdp: %w", err)
 	}
 
-	timer := time.NewTicker(30 * time.Second)
-	defer timer.Stop()
-
 	select {
 	case <-webrtc.GatheringCompletePromise(pc.peerConnection):
-		fmt.Println("ICE Gathering complete")
-	case <-timer.C:
-		return errors.New("failed to gather ICE candidates within 30 seconds")
+	case <-signal.ctx.Done():
+		return fmt.Errorf("failed to gather ICE candidates within context deadline; err: %w", signal.ctx.Err())
 	}
 
 	if _, err = signal.docRef.Set(signal.ctx, map[string]interface{}{
@@ -104,9 +99,11 @@ func (signal *FirebaseOfferSignal) offer(pc *PeerConnection) error {
 loop:
 	for {
 		select {
+		case <-signal.ctx.Done():
+			return fmt.Errorf("failed to get answer within context deadline; err: %w", signal.ctx.Err())
 		case <-ticker.C:
 			snapshot, err := signal.docRef.Get(signal.ctx)
-			if err != nil {
+			if err != nil || snapshot == nil {
 				if status.Code(err) == codes.NotFound {
 					continue loop
 				}
