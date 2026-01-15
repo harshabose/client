@@ -8,6 +8,8 @@ import (
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
+// todo: WithRTSPInputOption does not work for some reason. needs work
+
 func WithRTSPInputOption(demuxer Demuxer) error {
 	s, ok := demuxer.(CanSetDemuxerInputOption)
 	if !ok {
@@ -40,10 +42,6 @@ func WithFileInputOption(demuxer Demuxer) error {
 	if err := s.SetInputOption("re", "", 0); err != nil {
 		return err
 	}
-	// // Additional options for smooth playback
-	// if err := demuxer.inputOptions.SetInputOption("fflags", "+genpts", 0); err != nil {
-	// 	return err
-	// }
 
 	return nil
 }

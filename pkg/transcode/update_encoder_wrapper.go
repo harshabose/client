@@ -136,10 +136,6 @@ func (u *UpdateEncoder) UpdateBitrate(bps int64) error {
 
 	newEncoder.Start()
 
-	// Wait for the first packet from the new encoder
-	// firstPacket := <-newEncoder.WaitForPacket()
-	// newEncoder.Put(firstPacket)
-
 	u.mux.Lock()
 	oldEncoder := u.encoder
 	u.encoder = newEncoder
@@ -150,7 +146,7 @@ func (u *UpdateEncoder) UpdateBitrate(bps int64) error {
 	fmt.Println("╔═══════════════════════════════════════╗")
 	fmt.Println("║        🎥 ENCODER UPDATED 🎥          ║")
 	fmt.Printf("║      New Bitrate: %6d kbps          ║\n", bps/1000)
-	fmt.Printf("║      Change: %6.2f                   ║\n", change)
+	fmt.Printf("║      Change(%%): %6.2f                   ║\n", change)
 	fmt.Printf("║      Update time: %6d ms            ║\n", time.Since(start).Milliseconds())
 	fmt.Println("╚═══════════════════════════════════════╝")
 	fmt.Println()
@@ -231,9 +227,14 @@ func (u *UpdateEncoder) getPacket() (*astiav.Packet, error) {
 	defer u.mux.RUnlock()
 
 	if u.encoder != nil {
-		ctx, cancel := context.WithTimeout(u.ctx, 50*time.Millisecond)
+		ctx, cancel := context.WithTimeout(u.ctx, 100*time.Millisecond) // approx 2*fps
 		defer cancel()
-		return u.encoder.GetPacket(ctx) // Don't hold lock during blocking call
+
+		p, err := u.encoder.GetPacket(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return p, nil
 	}
 
 	return nil, errors.New("encoder is nil")
@@ -243,7 +244,7 @@ func (u *UpdateEncoder) pushPacket(p *astiav.Packet) error {
 	if p == nil {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(u.ctx, 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(u.ctx, 100*time.Millisecond)
 	defer cancel()
 	return u.buffer.Push(ctx, p)
 }
@@ -256,13 +257,14 @@ func (u *UpdateEncoder) loop() {
 		default:
 			p, err := u.getPacket()
 			if err != nil {
-				// fmt.Println("error getting packet from encoder; err:", err.Error())
+				fmt.Println("error getting packet from encoder; err:", err.Error())
+				continue
 			}
 
 			if err := u.pushPacket(p); err != nil {
 				fmt.Println(err.Error())
 			}
-			time.Sleep(10 * time.Millisecond)
+			// time.Sleep(10 * time.Millisecond)
 		}
 	}
 }
