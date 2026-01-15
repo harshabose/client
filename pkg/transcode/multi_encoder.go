@@ -74,11 +74,11 @@ func (p *dummyMediaFrameProducer) GetFrame(ctx context.Context) (*astiav.Frame, 
 }
 
 func (p *dummyMediaFrameProducer) Generate() *astiav.Frame {
-	return p.buffer.Generate()
+	return p.buffer.Get()
 }
 
 func (p *dummyMediaFrameProducer) PutBack(frame *astiav.Frame) {
-	p.buffer.PutBack(frame)
+	p.buffer.Put(frame)
 }
 
 type splitEncoder struct {
@@ -136,7 +136,7 @@ func NewMultiUpdateEncoder(ctx context.Context, config MultiConfig, builder *Gen
 	for _, bitrate := range encoder.bitrates {
 		// TODO: WARN: 90 size might be tooo high
 		// TODO: Frame pool could be abstracted away
-		producer := newDummyMediaFrameProducer(buffer.CreateChannelBuffer(ctx2, 10, buffer.CreateFramePool()), describer)
+		producer := newDummyMediaFrameProducer(buffer.NewChannelBufferWithGenerator(ctx2, buffer.CreateFramePool(), 10, 1), describer)
 
 		if err := builder.UpdateBitrate(bitrate); err != nil {
 			return nil, err

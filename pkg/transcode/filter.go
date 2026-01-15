@@ -81,7 +81,7 @@ func CreateGeneralFilter(ctx context.Context, canProduceMediaFrame CanProduceMed
 	}
 
 	if filter.buffer == nil {
-		filter.buffer = buffer.CreateChannelBuffer(ctx, 256, buffer.CreateFramePool())
+		filter.buffer = buffer.NewChannelBufferWithGenerator(ctx, buffer.CreateFramePool(), 256, 1)
 	}
 
 	if err = filter.srcContext.SetParameters(filter.srcContextParams); err != nil {
@@ -148,19 +148,19 @@ loop1:
 				continue
 			}
 			if err := filter.srcContext.AddFrame(srcFrame, astiav.NewBuffersrcFlags(astiav.BuffersrcFlagKeepRef)); err != nil {
-				filter.buffer.PutBack(srcFrame)
+				filter.buffer.Put(srcFrame)
 				continue loop1
 			}
 		loop2:
 			for {
-				sinkFrame := filter.buffer.Generate()
+				sinkFrame := filter.buffer.Get()
 				if err = filter.sinkContext.GetFrame(sinkFrame, astiav.NewBuffersinkFlags()); err != nil {
-					filter.buffer.PutBack(sinkFrame)
+					filter.buffer.Put(sinkFrame)
 					break loop2
 				}
 
 				if err := filter.pushFrame(sinkFrame); err != nil {
-					filter.buffer.PutBack(sinkFrame)
+					filter.buffer.Put(sinkFrame)
 					continue loop2
 				}
 			}
@@ -184,7 +184,7 @@ func (filter *GeneralFilter) getFrame() (*astiav.Frame, error) {
 }
 
 func (filter *GeneralFilter) PutBack(frame *astiav.Frame) {
-	filter.buffer.PutBack(frame)
+	filter.buffer.Put(frame)
 }
 
 func (filter *GeneralFilter) GetFrame(ctx context.Context) (*astiav.Frame, error) {

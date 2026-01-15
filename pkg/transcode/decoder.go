@@ -56,7 +56,7 @@ func CreateGeneralDecoder(ctx context.Context, canProduceMediaType CanProduceMed
 	}
 
 	if decoder.buffer == nil {
-		decoder.buffer = buffer.CreateChannelBuffer(ctx, 256, buffer.CreateFramePool())
+		decoder.buffer = buffer.NewChannelBufferWithGenerator(ctx, buffer.CreateFramePool(), 256, 1)
 	}
 
 	if err = decoder.decoderContext.Open(decoder.codec, nil); err != nil {
@@ -100,16 +100,16 @@ loop1:
 			}
 		loop2:
 			for {
-				frame := decoder.buffer.Generate()
+				frame := decoder.buffer.Get()
 				if err := decoder.decoderContext.ReceiveFrame(frame); err != nil {
-					decoder.buffer.PutBack(frame)
+					decoder.buffer.Put(frame)
 					break loop2
 				}
 
 				frame.SetPictureType(astiav.PictureTypeNone)
 
 				if err := decoder.pushFrame(frame); err != nil {
-					decoder.buffer.PutBack(frame)
+					decoder.buffer.Put(frame)
 					continue loop2
 				}
 			}
@@ -137,7 +137,7 @@ func (decoder *GeneralDecoder) GetFrame(ctx context.Context) (*astiav.Frame, err
 }
 
 func (decoder *GeneralDecoder) PutBack(frame *astiav.Frame) {
-	decoder.buffer.PutBack(frame)
+	decoder.buffer.Put(frame)
 }
 
 func (decoder *GeneralDecoder) close() {

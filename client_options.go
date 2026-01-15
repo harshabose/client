@@ -221,7 +221,7 @@ func WithSimulcastExtensionHeaders() ClientOption {
 	}
 }
 
-func WithBandwidthControlInterceptor(initialBitrate, minimumBitrate, maximumBitrate uint64, interval time.Duration) ClientOption {
+func WithBandwidthControlInterceptor(initialBitrate, minimumBitrate, maximumBitrate int64, interval time.Duration) ClientOption {
 	return func(client *Client) error {
 		congestionController, err := cc.NewInterceptor(func() (cc.BandwidthEstimator, error) {
 			return gcc.NewSendSideBWE(gcc.SendSideBWEInitialBitrate(int(initialBitrate)), gcc.SendSideBWEMinBitrate(int(minimumBitrate)), gcc.SendSideBWEMaxBitrate(int(maximumBitrate)))

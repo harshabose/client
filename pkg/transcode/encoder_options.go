@@ -12,14 +12,6 @@ import (
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
-type (
-	EncoderOption = func(encoder Encoder) error
-)
-
-type codecSettings interface {
-	ForEach(func(string, string) error) error
-}
-
 type X264Opts struct {
 	Bitrate       string `x264-opts:"bitrate"`
 	VBVMaxBitrate string `x264-opts:"vbv-maxrate"`
@@ -334,7 +326,7 @@ func WithEncoderBufferSize(size int, pool buffer.Pool[*astiav.Packet]) EncoderOp
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.CreateChannelBuffer(encoder.Ctx(), size, pool))
+		s.SetBuffer(buffer.NewChannelBufferWithGenerator(encoder.Ctx(), pool, uint(size), 1))
 		return nil
 	}
 }

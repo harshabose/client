@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"sync"
 
 	"github.com/pion/webrtc/v4"
 
+	"github.com/harshabose/tools/pkg/cond"
 	"github.com/harshabose/tools/pkg/multierr"
 )
 
@@ -15,6 +17,7 @@ type DataChannel struct {
 	label       string
 	datachannel *webrtc.DataChannel
 	init        *webrtc.DataChannelInit
+	cond        *cond.ContextCond
 	ctx         context.Context
 }
 
@@ -22,6 +25,7 @@ func CreateDataChannel(ctx context.Context, label string, peerConnection *webrtc
 	dc := &DataChannel{
 		label:       label,
 		datachannel: nil,
+		cond:        cond.NewContextCond(&sync.Mutex{}),
 		ctx:         ctx,
 	}
 
@@ -65,6 +69,7 @@ func (dc *DataChannel) Close() error {
 
 func (dc *DataChannel) onOpen() *DataChannel {
 	dc.datachannel.OnOpen(func() {
+		dc.cond.Broadcast()
 		fmt.Printf("data channel (id=%s) opened\n", dc.datachannel.Label())
 	})
 
@@ -76,6 +81,19 @@ func (dc *DataChannel) onClose() *DataChannel {
 		fmt.Printf("data channel (id=%s) closed\n", dc.datachannel.Label())
 	})
 	return dc
+}
+
+func (dc *DataChannel) WaitTillOpen(ctx context.Context) error {
+	dc.cond.L.Lock()
+	defer dc.cond.L.Unlock()
+
+	for dc.datachannel.ReadyState() != webrtc.DataChannelStateOpen {
+		if err := dc.cond.Wait(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (dc *DataChannel) DataChannel() *webrtc.DataChannel {

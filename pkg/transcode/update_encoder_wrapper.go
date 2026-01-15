@@ -46,7 +46,7 @@ func NewUpdateEncoder(ctx context.Context, config UpdateConfig, builder *General
 		config:  config,
 		builder: builder,
 		resume:  make(chan struct{}),
-		buffer:  buffer.CreateChannelBuffer(ctx, 30, buffer.CreatePacketPool()),
+		buffer:  buffer.NewChannelBufferWithGenerator(ctx, buffer.CreatePacketPool(), 30, 1),
 		ctx:     ctx,
 	}
 
@@ -138,7 +138,7 @@ func (u *UpdateEncoder) UpdateBitrate(bps int64) error {
 
 	// Wait for the first packet from the new encoder
 	// firstPacket := <-newEncoder.WaitForPacket()
-	// newEncoder.PutBack(firstPacket)
+	// newEncoder.Put(firstPacket)
 
 	u.mux.Lock()
 	oldEncoder := u.encoder

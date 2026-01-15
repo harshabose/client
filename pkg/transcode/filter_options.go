@@ -12,8 +12,7 @@ import (
 )
 
 type (
-	FilterOption func(Filter) error
-	Name         string
+	Name string
 )
 
 func (f Name) String() string {
@@ -49,7 +48,7 @@ func WithFilterBuffer(size int, pool buffer.Pool[*astiav.Frame]) FilterOption {
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.CreateChannelBuffer(filter.Ctx(), size, pool))
+		s.SetBuffer(buffer.NewChannelBufferWithGenerator(filter.Ctx(), pool, uint(size), 1))
 		return nil
 	}
 }

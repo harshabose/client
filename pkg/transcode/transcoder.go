@@ -4,10 +4,15 @@ package transcode
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/asticode/go-astiav"
 )
+
+type DecoderOption = func(Decoder) error
+type DemuxerOption = func(Demuxer) error
+type FilterOption = func(Filter) error
+type EncoderOption = func(Encoder) error
+type TranscoderOption = func(*Transcoder) error
 
 type Transcoder struct {
 	demuxer Demuxer
@@ -37,7 +42,6 @@ func NewTranscoder(demuxer Demuxer, decoder Decoder, filter Filter, encoder Enco
 }
 
 func (t *Transcoder) Start() {
-	fmt.Println("started encoder")
 	t.demuxer.Start()
 	t.decoder.Start()
 	t.filter.Start()
@@ -60,8 +64,8 @@ func (t *Transcoder) PutBack(packet *astiav.Packet) {
 }
 
 // Generate method is to satisfy mediapipe.CanGenerate interface. TODO: but I would prefer to integrate with PutBack
-func (t *Transcoder) Generate() (*astiav.Packet, error) {
-	packet, err := t.encoder.GetPacket(t.encoder.Ctx())
+func (t *Transcoder) Generate(ctx context.Context) (*astiav.Packet, error) {
+	packet, err := t.encoder.GetPacket(ctx)
 	if err != nil {
 		return nil, err
 	}

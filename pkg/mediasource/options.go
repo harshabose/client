@@ -8,6 +8,14 @@ import (
 
 type TrackOption = func(*track) error
 
+type CodecID string
+
+const (
+	H264CodecID CodecID = "h264"
+	VP8CodecID  CodecID = "vp8"
+	OpusCodecID CodecID = "opus"
+)
+
 func WithH264Track(clockrate uint32) TrackOption {
 	return func(track *track) error {
 		if track.codecCapability != nil {

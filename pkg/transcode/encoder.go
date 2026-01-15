@@ -73,7 +73,7 @@ func CreateGeneralEncoder(ctx context.Context, codecID astiav.CodecID, canProduc
 	}
 
 	if encoder.buffer == nil {
-		encoder.buffer = buffer.CreateChannelBuffer(ctx2, 256, buffer.CreatePacketPool())
+		encoder.buffer = buffer.NewChannelBufferWithGenerator(ctx2, buffer.CreatePacketPool(), 256, 1)
 	}
 
 	encoder.findParameterSets(encoder.encoderContext.ExtraData())
@@ -119,14 +119,14 @@ loop1:
 			}
 		loop2:
 			for {
-				packet := encoder.buffer.Generate()
+				packet := encoder.buffer.Get()
 				if err = encoder.encoderContext.ReceivePacket(packet); err != nil {
-					encoder.buffer.PutBack(packet)
+					encoder.buffer.Put(packet)
 					break loop2
 				}
 
 				if err := encoder.pushPacket(packet); err != nil {
-					encoder.buffer.PutBack(packet)
+					encoder.buffer.Put(packet)
 					continue loop2
 				}
 			}
@@ -154,7 +154,7 @@ func (encoder *GeneralEncoder) pushPacket(packet *astiav.Packet) error {
 }
 
 func (encoder *GeneralEncoder) PutBack(packet *astiav.Packet) {
-	encoder.buffer.PutBack(packet)
+	encoder.buffer.Put(packet)
 }
 
 func (encoder *GeneralEncoder) Stop() {

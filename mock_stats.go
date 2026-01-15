@@ -55,31 +55,6 @@ func (stats *MockStatsGetter) Generate(_ *PeerConnection) Stat {
 			ResponsesSent:               1,
 		},
 
-		// ICECandidateLocalStat: webrtc.ICECandidateStats{
-		// 	Timestamp:     timestamp,
-		// 	Type:          webrtc.StatsTypeLocalCandidate,
-		// 	ID:            "local_candidate_1",
-		// 	IP:            "192.168.1.100",
-		// 	Port:          54321,
-		// 	Protocol:      "udp",
-		// 	CandidateType: webrtc.ICECandidateTypeHost,
-		// 	Priority:      2113667326,
-		// 	URL:           "",
-		// 	Deleted:       false,
-		// },
-		//
-		// ICECandidateRemoteStat: webrtc.ICECandidateStats{
-		// 	Timestamp:     timestamp,
-		// 	Type:          webrtc.StatsTypeRemoteCandidate,
-		// 	ID:            "remote_candidate_1",
-		// 	IP:            "203.0.113.45",
-		// 	Port:          12345,
-		// 	Protocol:      "udp",
-		// 	CandidateType: webrtc.ICECandidateTypePrflx,
-		// 	Priority:      1685987326,
-		// 	URL:           "stun:stun.example.com:19302",
-		// },
-
 		CertificateStats: map[string]webrtc.CertificateStats{
 			"cert_1": {
 				Timestamp:            timestamp,
@@ -156,37 +131,6 @@ func (stats *MockStatsGetter) Generate(_ *PeerConnection) Stat {
 			BytesSent:             524288, // 512KB
 			BytesReceived:         487424, // ~475KB
 		},
-
-		DataChannelStats: map[string]webrtc.DataChannelStats{
-			"dc_chat": {
-				Timestamp:             timestamp,
-				Type:                  webrtc.StatsTypeDataChannel,
-				ID:                    "dc_chat",
-				Label:                 "chat",
-				Protocol:              "",
-				DataChannelIdentifier: 0,
-				TransportID:           "sctp_transport_1",
-				State:                 webrtc.DataChannelStateOpen,
-				MessagesSent:          156,
-				BytesSent:             45120, // ~44KB
-				MessagesReceived:      142,
-				BytesReceived:         38976, // ~38KB
-			},
-			"dc_file_transfer": {
-				Timestamp:             timestamp,
-				Type:                  webrtc.StatsTypeDataChannel,
-				ID:                    "dc_file_transfer",
-				Label:                 "file-transfer",
-				Protocol:              "",
-				DataChannelIdentifier: 1,
-				TransportID:           "sctp_transport_1",
-				State:                 webrtc.DataChannelStateOpen,
-				MessagesSent:          89,
-				BytesSent:             479168, // ~467KB
-				MessagesReceived:      76,
-				BytesReceived:         448448, // ~437KB
-			},
-		},
 	}
 }
 
@@ -203,38 +147,6 @@ func addNetworkJitter(baseValue float64, jitterPercent float64) float64 {
 	jitter := (math.Sin(float64(time.Now().UnixNano())/1e9) * jitterPercent * baseValue) / 100
 	return math.Max(0, baseValue+jitter)
 }
-
-// func (stats *MockStatsGetter) GenerateWithConditions(pc *PeerConnection, condition string) (Stat, error) {
-// 	baseStat, _ := stats.Generate(pc)
-//
-// 	switch condition {
-// 	case "poor_network":
-// 		// Simulate poor network conditions
-// 		baseStat.ICECandidatePairStat.CurrentRoundTripTime = addNetworkJitter(0.250, 20)                                  // 250ms ± 20%
-// 		baseStat.ICECandidatePairStat.PacketsReceived = uint32(float64(baseStat.ICECandidatePairStat.PacketsSent) * 0.85) // 15% loss
-// 		baseStat.ICETransportStat.BytesReceived = uint64(float64(baseStat.ICETransportStat.BytesSent) * 0.85)
-// 		baseStat.SCTPTransportStat.CongestionWindow = 16384 // 16KB (small window)
-// 		baseStat.SCTPTransportStat.UNACKData = 8192         // Some unacknowledged data
-//
-// 	case "excellent_network":
-// 		// Simulate excellent network conditions
-// 		baseStat.ICECandidatePairStat.CurrentRoundTripTime = addNetworkJitter(0.015, 5)           // 15ms ± 5%
-// 		baseStat.ICECandidatePairStat.PacketsReceived = baseStat.ICECandidatePairStat.PacketsSent // No loss
-// 		baseStat.ICETransportStat.BytesReceived = baseStat.ICETransportStat.BytesSent
-// 		baseStat.SCTPTransportStat.CongestionWindow = 262144 // 256KB (large window)
-// 		baseStat.SCTPTransportStat.UNACKData = 0             // All data acknowledged
-//
-// 	case "connecting":
-// 		// Simulate connection in progress
-// 		baseStat.ICECandidatePairStat.State = webrtc.StatsICECandidatePairStateInProgress
-// 		baseStat.ICETransportStat.ICEState = webrtc.ICETransportStateChecking
-// 		baseStat.ICETransportStat.DTLSState = webrtc.DTLSTransportStateConnecting
-// 		baseStat.DataChannelStats["dc_chat"].State = webrtc.DataChannelStateConnecting
-// 		baseStat.DataChannelStats["dc_file_transfer"].State = webrtc.DataChannelStateConnecting
-// 	}
-//
-// 	return baseStat, nil
-// }
 
 func (stats *MockStatsGetter) Close() error {
 	return nil

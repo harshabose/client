@@ -15,16 +15,105 @@ import (
 	"github.com/harshabose/tools/pkg/multierr"
 )
 
+/* the following code blocks are from pion webrtc.
+	// note: commented out values are not available
+	stat := CandidatePairStats{
+				Timestamp:         time.Now(),
+				LocalCandidateID:  cp.Local.ID(),
+				RemoteCandidateID: cp.Remote.ID(),
+				State:             cp.state,
+				Nominated:         cp.nominated,
+				// PacketsSent uint32
+				// PacketsReceived uint32
+				// BytesSent uint64
+				// BytesReceived uint64
+				// LastPacketSentTimestamp time.Time
+				// LastPacketReceivedTimestamp time.Time
+				FirstRequestTimestamp:         cp.FirstRequestSentAt(),
+				LastRequestTimestamp:          cp.LastRequestSentAt(),
+				FirstResponseTimestamp:        cp.FirstReponseReceivedAt(),
+				LastResponseTimestamp:         cp.LastResponseReceivedAt(),
+				FirstRequestReceivedTimestamp: cp.FirstRequestReceivedAt(),
+				LastRequestReceivedTimestamp:  cp.LastRequestReceivedAt(),
+
+				TotalRoundTripTime:   cp.TotalRoundTripTime(),
+				CurrentRoundTripTime: cp.CurrentRoundTripTime(),
+				// AvailableOutgoingBitrate float64
+				// AvailableIncomingBitrate float64
+				// CircuitBreakerTriggerCount uint32
+				RequestsReceived:  cp.RequestsReceived(),
+				RequestsSent:      cp.RequestsSent(),
+				ResponsesReceived: cp.ResponsesReceived(),
+				ResponsesSent:     cp.ResponsesSent(),
+				// RetransmissionsReceived uint64
+				// RetransmissionsSent uint64
+				// ConsentRequestsSent uint64
+				// ConsentExpiredTimestamp time.Time
+			}
+	stats := TransportStats{
+				Timestamp: statsTimestampFrom(time.Now()),
+				Type:      StatsTypeTransport,
+				ID:        "iceTransport",
+				BytesSent = conn.BytesSent()
+				BytesReceived = conn.BytesReceived(),
+				// PacketsSent
+    			// PacketsReceived
+    			// RTCPTransportStatsID
+    			// ICERole
+    			// DTLSState
+    			// ICEState
+    			// SelectedCandidatePairID
+    			// LocalCertificateID
+    			// RemoteCertificateID
+    			// DTLSCipher
+    			// SRTPCipher
+			}
+	stats := SCTPTransportStats{
+				Timestamp: statsTimestampFrom(time.Now()),
+				Type:      StatsTypeSCTPTransport,
+				ID:        "sctpTransport",
+				// TransportID string
+				// UNACKData uint32
+				BytesSent: association.BytesSent()
+				BytesReceived: association.BytesReceived()
+				SmoothedRoundTripTime: association.SRTT() * 0.001 // convert milliseconds to seconds
+				CongestionWindow: association.CWND()
+				ReceiverWindow: association.RWND()
+				MTU: association.MTU()
+			}
+
+	stats := CertificateStats{
+				Timestamp:            statsTimestampFrom(time.Now()),
+				Type:                 StatsTypeCertificate,
+				ID:                   c.statsID,
+				Fingerprint:          fingerPrintAlgo[0].Value,
+				FingerprintAlgorithm: fingerPrintAlgo[0].Algorithm,
+				Base64Certificate:    base64Certificate,
+				IssuerCertificateID:  c.x509Cert.Issuer.String(),
+			}
+
+	stats := CodecStats{
+				Timestamp:   statsTimestampFrom(time.Now()),
+				Type:        StatsTypeCodec,
+				ID:          codec.statsID,
+				PayloadType: codec.PayloadType,
+				// CodecType CodecType
+				// TransportID string
+				MimeType:    codec.MimeType,
+				ClockRate:   codec.ClockRate,
+				Channels:    uint8(codec.Channels), //nolint:gosec // G115
+				SDPFmtpLine: codec.SDPFmtpLine,
+				// Implementation string
+			}
+*/
+
 type Stat struct {
-	PeerConnectionStat     webrtc.PeerConnectionStats          `json:"peer_connection_stat"`
-	ICECandidatePairStat   webrtc.ICECandidatePairStats        `json:"ice_candidate_pair_stat"`
-	ICECandidateLocalStat  map[string]webrtc.ICECandidateStats `json:"ice_candidate_local_stat"`
-	ICECandidateRemoteStat map[string]webrtc.ICECandidateStats `json:"ice_candidate_remote_stat"`
-	CertificateStats       map[string]webrtc.CertificateStats  `json:"certificate_stats"`
-	CodecStats             map[string]webrtc.CodecStats        `json:"codec_stats"`
-	ICETransportStat       webrtc.TransportStats               `json:"ice_transport_stat"`
-	SCTPTransportStat      webrtc.SCTPTransportStats           `json:"sctp_transport_stat"`
-	DataChannelStats       map[string]webrtc.DataChannelStats  `json:"data_channel_stats"`
+	PeerConnectionStat   webrtc.PeerConnectionStats         `json:"peer_connection_stat"` // note: peer connection stats are fully fulfilled
+	ICECandidatePairStat webrtc.ICECandidatePairStats       `json:"ice_candidate_pair_stat"`
+	CertificateStats     map[string]webrtc.CertificateStats `json:"certificate_stats"`
+	CodecStats           map[string]webrtc.CodecStats       `json:"codec_stats"`
+	ICETransportStat     webrtc.TransportStats              `json:"ice_transport_stat"`
+	SCTPTransportStat    webrtc.SCTPTransportStats          `json:"sctp_transport_stat"`
 }
 
 type stat struct {
@@ -37,10 +126,8 @@ func newStat(pc *PeerConnection) *stat {
 	return &stat{
 		pc: pc,
 		Stat: &Stat{
-			ICECandidateLocalStat:  make(map[string]webrtc.ICECandidateStats),
-			ICECandidateRemoteStat: make(map[string]webrtc.ICECandidateStats),
-			CertificateStats:       make(map[string]webrtc.CertificateStats),
-			CodecStats:             make(map[string]webrtc.CodecStats),
+			CertificateStats: make(map[string]webrtc.CertificateStats),
+			CodecStats:       make(map[string]webrtc.CodecStats),
 		},
 	}
 }
@@ -50,34 +137,14 @@ func (s *stat) Consume(stats webrtc.Stats) error {
 	defer s.mux.Unlock()
 
 	switch stat := stats.(type) {
-	case webrtc.DataChannelStats:
-		_, err := s.pc.GetDataChannel(stat.Label)
-		if err != nil {
-			return err
-		}
-
-		s.DataChannelStats[stat.Label] = stat
-		return nil
-
 	case webrtc.PeerConnectionStats:
 		s.Stat.PeerConnectionStat = stat
 		return nil
-
-	case webrtc.ICECandidateStats:
-		if stat.Type == webrtc.StatsTypeLocalCandidate {
-			s.ICECandidateLocalStat[stat.ID] = stat
-			return nil
-		}
-
-		if stat.Type == webrtc.StatsTypeRemoteCandidate {
-			s.ICECandidateRemoteStat[stat.ID] = stat
-			return nil
-		}
-
-		return errors.New("ICE candidate stat is neither local or remote")
-
 	case webrtc.ICECandidatePairStats:
-		s.ICECandidatePairStat = stat
+		if stat.State == webrtc.StatsICECandidatePairStateSucceeded && stat.Nominated {
+			s.ICECandidatePairStat = stat
+		}
+
 		return nil
 
 	case webrtc.CertificateStats:
@@ -97,7 +164,7 @@ func (s *stat) Consume(stats webrtc.Stats) error {
 		return nil
 
 	default:
-		return errors.New("stat type is not managed")
+		return nil
 	}
 }
 
@@ -116,14 +183,12 @@ func (s *stat) Generate() Stat {
 	}
 
 	return Stat{
-		PeerConnectionStat:     s.Stat.PeerConnectionStat,
-		ICECandidatePairStat:   s.ICECandidatePairStat,
-		ICECandidateLocalStat:  s.ICECandidateLocalStat,
-		ICECandidateRemoteStat: s.ICECandidateRemoteStat,
-		CertificateStats:       certificatesCopy,
-		CodecStats:             codecCopy,
-		ICETransportStat:       s.ICETransportStat,
-		SCTPTransportStat:      s.SCTPTransportStat,
+		PeerConnectionStat:   s.Stat.PeerConnectionStat,
+		ICECandidatePairStat: s.ICECandidatePairStat,
+		CertificateStats:     certificatesCopy,
+		CodecStats:           codecCopy,
+		ICETransportStat:     s.ICETransportStat,
+		SCTPTransportStat:    s.SCTPTransportStat,
 	}
 }
 
@@ -302,7 +367,7 @@ func (pc *PeerConnection) GetBWEstimator() (*BWEController, error) {
 		return nil, errors.New("bitrate control is not enabled")
 	}
 
-	if pc.bwc.estimator == nil {
+	if pc.bwc.get() == nil {
 		return nil, errors.New("bitrate estimator not yet assigned")
 	}
 
@@ -310,37 +375,22 @@ func (pc *PeerConnection) GetBWEstimator() (*BWEController, error) {
 }
 
 func (pc *PeerConnection) Close() error {
-	fmt.Printf("[PeerConnection] Starting close for peer connection: %s\n", pc.label)
-
 	var merr error
 	pc.once.Do(func() {
-		fmt.Printf("[PeerConnection] Canceling context for peer: %s\n", pc.label)
 		if pc.cancel != nil {
 			pc.cancel()
 		}
 
-		fmt.Printf("[PeerConnection] Closing underlying WebRTC peer connection for: %s\n", pc.label)
 		if err := pc.peerConnection.Close(); err != nil {
-			fmt.Printf("[PeerConnection] ERROR: Failed to close WebRTC peer connection for %s: %v\n", pc.label, err)
 			merr = multierr.Append(merr, err)
-		} else {
-			fmt.Printf("[PeerConnection] ✓ WebRTC peer connection closed for: %s\n", pc.label)
+			return
 		}
 
 		if pc.bwc != nil {
-			fmt.Printf("[PeerConnection] Closing bandwidth controller for: %s\n", pc.label)
 			if err := pc.bwc.Close(); err != nil {
-				fmt.Printf("[PeerConnection] ERROR: Failed to close bandwidth controller for %s: %v\n", pc.label, err)
 				merr = multierr.Append(merr, err)
-			} else {
-				fmt.Printf("[PeerConnection] ✓ Bandwidth controller closed for: %s\n", pc.label)
 			}
-		}
-
-		if merr == nil {
-			fmt.Printf("[PeerConnection] ✓ Successfully closed peer connection: %s\n", pc.label)
-		} else {
-			fmt.Printf("[PeerConnection] ⚠ Peer connection closed with errors for %s: %v\n", pc.label, merr)
+			return
 		}
 	})
 

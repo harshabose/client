@@ -8,8 +8,6 @@ import (
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
-type DemuxerOption = func(demuxer Demuxer) error
-
 func WithRTSPInputOption(demuxer Demuxer) error {
 	s, ok := demuxer.(CanSetDemuxerInputOption)
 	if !ok {
@@ -55,7 +53,12 @@ func WithAlsaInputFormatOption(demuxer Demuxer) error {
 	if !ok {
 		return ErrorInterfaceMismatch
 	}
-	s.SetInputFormat(astiav.FindInputFormat("alsa"))
+	f := astiav.FindInputFormat("alsa")
+	if f == nil {
+		return ErrorInputFormatDoesNotExists
+	}
+
+	s.SetInputFormat(f)
 	return nil
 }
 
@@ -64,7 +67,12 @@ func WithAvFoundationInputFormatOption(demuxer Demuxer) error {
 	if !ok {
 		return ErrorInterfaceMismatch
 	}
-	setInputFormat.SetInputFormat(astiav.FindInputFormat("avfoundation"))
+	f := astiav.FindInputFormat("avfoundation")
+	if f == nil {
+		return ErrorInputFormatDoesNotExists
+	}
+
+	setInputFormat.SetInputFormat(f)
 
 	setInputOption, ok := demuxer.(CanSetDemuxerInputOption)
 	if !ok {
@@ -92,7 +100,7 @@ func WithDemuxerBuffer(size int, pool buffer.Pool[*astiav.Packet]) DemuxerOption
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.CreateChannelBuffer(demuxer.Ctx(), size, pool))
+		s.SetBuffer(buffer.NewChannelBufferWithGenerator(demuxer.Ctx(), pool, uint(size), 1))
 		return nil
 	}
 }

@@ -95,8 +95,7 @@ func (c *Client) CreatePeerConnectionWithBWEstimator(label string, config webrtc
 	if pc.bwc != nil {
 		select {
 		case estimator := <-c.estimatorChan:
-			pc.bwc.estimator = estimator
-			pc.bwc.interval = 50 * time.Millisecond
+			pc.bwc.set(estimator, 50*time.Millisecond)
 		}
 	}
 
@@ -142,6 +141,23 @@ func (c *Client) ClosePeerConnection(label string) error {
 	pc, err := c.GetPeerConnection(label)
 	if err != nil {
 		return err
+	}
+
+	if err := pc.Close(); err != nil {
+		return err
+	}
+
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	delete(c.pcs, label)
+	return nil
+}
+
+func (c *Client) ClosePeerConnectionIfExists(label string) error {
+	pc, err := c.GetPeerConnection(label)
+	if err != nil {
+		return nil
 	}
 
 	if err := pc.Close(); err != nil {

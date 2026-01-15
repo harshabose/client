@@ -4,6 +4,7 @@ package transcode
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/asticode/go-astiav"
@@ -17,19 +18,23 @@ type GeneralDemuxer struct {
 	inputFormat     *astiav.InputFormat
 	stream          *astiav.Stream
 	codecParameters *astiav.CodecParameters
-	buffer          buffer.BufferWithGenerator[*astiav.Packet]
-	ctx             context.Context
-	cancel          context.CancelFunc
+
+	buffer buffer.BufferWithGenerator[*astiav.Packet]
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func CreateGeneralDemuxer(ctx context.Context, containerAddress string, options ...DemuxerOption) (*GeneralDemuxer, error) {
-	ctx2, cancel := context.WithCancel(ctx)
 	astiav.RegisterAllDevices()
+
+	ctx2, cancel2 := context.WithCancel(ctx)
+
 	demuxer := &GeneralDemuxer{
 		formatContext: astiav.AllocFormatContext(),
 		inputOptions:  astiav.NewDictionary(),
 		ctx:           ctx2,
-		cancel:        cancel,
+		cancel:        cancel2,
 	}
 
 	if demuxer.formatContext == nil {
@@ -37,7 +42,7 @@ func CreateGeneralDemuxer(ctx context.Context, containerAddress string, options 
 	}
 
 	if demuxer.inputOptions == nil {
-		return nil, ErrorGeneralAllocate
+		return nil, fmt.Errorf("error allocating astiav.Dictionary (%w)", ErrorGeneralAllocate)
 	}
 
 	for _, option := range options {
@@ -65,7 +70,7 @@ func CreateGeneralDemuxer(ctx context.Context, containerAddress string, options 
 	demuxer.codecParameters = demuxer.stream.CodecParameters()
 
 	if demuxer.buffer == nil {
-		demuxer.buffer = buffer.CreateChannelBuffer(ctx, 256, buffer.CreatePacketPool())
+		demuxer.buffer = buffer.NewChannelBufferWithGenerator(ctx, buffer.CreatePacketPool(), 256, 1)
 	}
 
 	return demuxer, nil
@@ -94,20 +99,20 @@ loop1:
 		default:
 		loop2:
 			for {
-				packet := demuxer.buffer.Generate()
+				packet := demuxer.buffer.Get()
 
 				if err := demuxer.formatContext.ReadFrame(packet); err != nil {
-					demuxer.buffer.PutBack(packet)
+					demuxer.buffer.Put(packet)
 					continue loop1
 				}
 
 				if packet.StreamIndex() != demuxer.stream.Index() {
-					demuxer.buffer.PutBack(packet)
+					demuxer.buffer.Put(packet)
 					continue loop2
 				}
 
 				if err := demuxer.pushPacket(packet); err != nil {
-					demuxer.buffer.PutBack(packet)
+					demuxer.buffer.Put(packet)
 					continue loop1
 				}
 				break loop2
@@ -128,7 +133,7 @@ func (demuxer *GeneralDemuxer) GetPacket(ctx context.Context) (*astiav.Packet, e
 }
 
 func (demuxer *GeneralDemuxer) PutBack(packet *astiav.Packet) {
-	demuxer.buffer.PutBack(packet)
+	demuxer.buffer.Put(packet)
 }
 
 func (demuxer *GeneralDemuxer) close() {

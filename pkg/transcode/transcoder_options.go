@@ -10,8 +10,6 @@ import (
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
-type TranscoderOption = func(*Transcoder) error
-
 func WithGeneralDemuxer(ctx context.Context, containerAddress string, options ...DemuxerOption) TranscoderOption {
 	return func(transcoder *Transcoder) error {
 		demuxer, err := CreateGeneralDemuxer(ctx, containerAddress, options...)

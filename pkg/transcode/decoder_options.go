@@ -8,8 +8,6 @@ import (
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
-type DecoderOption = func(decoder Decoder) error
-
 func withVideoSetDecoderContext(demuxer CanDescribeMediaPacket) DecoderOption {
 	return func(decoder Decoder) error {
 		consumer, ok := decoder.(CanSetMediaPacket)
@@ -57,7 +55,7 @@ func WithDecoderBuffer(size int, pool buffer.Pool[*astiav.Frame]) DecoderOption 
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.CreateChannelBuffer(decoder.Ctx(), size, pool))
+		s.SetBuffer(buffer.NewChannelBufferWithGenerator(decoder.Ctx(), pool, uint(size), 1))
 		return nil
 	}
 }

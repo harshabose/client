@@ -42,19 +42,19 @@ func NewStatsGetter(ctx context.Context, c *Client, interval time.Duration) *Sta
 	return s
 }
 
-func (stats *StatsGetter) loop1(interval time.Duration) {
-	stats.wg.Add(1)
-	defer stats.wg.Done()
+func (g *StatsGetter) loop1(interval time.Duration) {
+	g.wg.Add(1)
+	defer g.wg.Done()
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-stats.ctx.Done():
+		case <-g.ctx.Done():
 			return
 		case <-ticker.C:
-			for _, pc := range stats.c.PeerConnections() {
+			for _, pc := range g.c.PeerConnections() {
 				stats := pc.GetPeerConnection().GetStats()
 
 				for _, s := range stats {
@@ -68,18 +68,18 @@ func (stats *StatsGetter) loop1(interval time.Duration) {
 	}
 }
 
-func (stats *StatsGetter) Close() error {
-	stats.once.Do(func() {
-		if stats.cancel != nil {
-			stats.cancel()
+func (g *StatsGetter) Close() error {
+	g.once.Do(func() {
+		if g.cancel != nil {
+			g.cancel()
 		}
 
-		stats.wg.Wait()
+		g.wg.Wait()
 	})
 
 	return nil
 }
 
-func Generate(pc *PeerConnection) Stat {
+func (g *StatsGetter) Generate(pc *PeerConnection) Stat {
 	return pc.stat.Generate()
 }

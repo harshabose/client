@@ -43,6 +43,23 @@ func createBWController(ctx context.Context) *BWEController {
 	}
 }
 
+func (bwc *BWEController) set(estimator cc.BandwidthEstimator, interval time.Duration) {
+	bwc.mux.Lock()
+	defer bwc.mux.Unlock()
+
+	fmt.Println("setting estimator")
+
+	bwc.estimator = estimator
+	bwc.interval = interval
+}
+
+func (bwc *BWEController) get() cc.BandwidthEstimator {
+	bwc.mux.RLock()
+	defer bwc.mux.RUnlock()
+
+	return bwc.estimator
+}
+
 func (bwc *BWEController) Start() {
 	go bwc.loop()
 }
@@ -99,7 +116,7 @@ func (bwc *BWEController) loop() {
 		case <-bwc.ctx.Done():
 			return
 		case <-ticker.C:
-			if bwc.estimator == nil {
+			if bwc.get() == nil {
 				continue
 			}
 
@@ -143,7 +160,7 @@ func (bwc *BWEController) sendBitrateUpdate(id string, callback UpdateBitrateCal
 }
 
 func (bwc *BWEController) getBitrate() (int, error) {
-	if bwc.estimator == nil {
+	if bwc.get() == nil {
 		return 0, errors.New("estimator is nil")
 	}
 	return bwc.estimator.GetTargetBitrate(), nil
