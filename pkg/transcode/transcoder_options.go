@@ -46,6 +46,19 @@ func WithGeneralFilter(ctx context.Context, filterConfig FilterConfig, options .
 	}
 }
 
+func WithFPSControlFilter(ctx context.Context, config FilterConfig, config2 UpdateFilterConfig, bufsize int, pool buffer.Pool[*astiav.Frame], options ...FilterOption) TranscoderOption {
+	return func(transcoder *Transcoder) error {
+		builder := NewGeneralFilterBuilder(config, transcoder.decoder, bufsize, pool, options...)
+		f, err := NewUpdateFilter(ctx, config2, builder, config2.InitialFPS)
+		if err != nil {
+			return err
+		}
+
+		transcoder.filter = f
+		return err
+	}
+}
+
 func WithGeneralEncoder(ctx context.Context, codecID astiav.CodecID, options ...EncoderOption) TranscoderOption {
 	return func(transcoder *Transcoder) error {
 		encoder, err := CreateGeneralEncoder(ctx, codecID, transcoder.filter, options...)
@@ -58,7 +71,7 @@ func WithGeneralEncoder(ctx context.Context, codecID astiav.CodecID, options ...
 	}
 }
 
-func WithBitrateControlEncoder(ctx context.Context, codecID astiav.CodecID, bitrateControlConfig UpdateConfig, settings codecSettings, bufferSize int, pool buffer.Pool[*astiav.Packet]) TranscoderOption {
+func WithBitrateControlEncoder(ctx context.Context, codecID astiav.CodecID, bitrateControlConfig UpdateEncoderConfig, settings codecSettings, bufferSize int, pool buffer.Pool[*astiav.Packet]) TranscoderOption {
 	return func(transcoder *Transcoder) error {
 		builder := NewEncoderBuilder(codecID, settings, transcoder.filter, bufferSize, pool)
 		updateEncoder, err := NewUpdateEncoder(ctx, bitrateControlConfig, builder)

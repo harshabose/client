@@ -58,7 +58,7 @@ func (o *X264AdvancedOptions) ForEach(f func(key, value string) error) error {
 	return nil
 }
 
-func (o *X264AdvancedOptions) UpdateBitrate(bps int64) error {
+func (o *X264AdvancedOptions) AdaptBitrate(bps int64) error {
 	kbps := bps / 1000
 
 	// Core bitrate settings (strict CBR)
@@ -75,7 +75,7 @@ func (o *X264AdvancedOptions) UpdateBitrate(bps int64) error {
 }
 
 func (o *X264AdvancedOptions) updateBitrate(bps int64) {
-	_ = o.UpdateBitrate(bps)
+	_ = o.AdaptBitrate(bps)
 }
 
 func (o *X264AdvancedOptions) GetCurrentBitrate() (int64, error) {
@@ -112,8 +112,8 @@ func (o *X264Options) ForEach(f func(key, value string) error) error {
 	return o.X264AdvancedOptions.ForEach(f)
 }
 
-func (o *X264Options) UpdateBitrate(bps int64) error {
-	return o.X264AdvancedOptions.UpdateBitrate(bps)
+func (o *X264Options) AdaptBitrate(bps int64) error {
+	return o.X264AdvancedOptions.AdaptBitrate(bps)
 }
 
 func (o *X264Options) WithInitialBitrate(bps int64) *X264Options {

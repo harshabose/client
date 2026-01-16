@@ -95,7 +95,7 @@ func (c *Client) CreatePeerConnectionWithBWEstimator(label string, config webrtc
 	if pc.bwc != nil {
 		select {
 		case estimator := <-c.estimatorChan:
-			pc.bwc.set(estimator, 50*time.Millisecond)
+			pc.bwc.set(estimator, 500*time.Millisecond)
 		}
 	}
 

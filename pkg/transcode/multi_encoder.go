@@ -16,14 +16,14 @@ import (
 
 type MultiConfig struct {
 	Steps uint8
-	UpdateConfig
+	UpdateEncoderConfig
 }
 
 func (c MultiConfig) validate() error {
 	if c.Steps == 0 {
 		return fmt.Errorf("steps need be more than 0")
 	}
-	return c.UpdateConfig.validate()
+	return c.UpdateEncoderConfig.validate()
 }
 
 func (c MultiConfig) getBitrates() []int64 {
@@ -43,7 +43,7 @@ func (c MultiConfig) getBitrates() []int64 {
 
 func NewMultiConfig(minBitrate, maxBitrate int64, steps uint8) MultiConfig {
 	c := MultiConfig{
-		UpdateConfig: UpdateConfig{
+		UpdateEncoderConfig: UpdateEncoderConfig{
 			MaxBitrate: maxBitrate,
 			MinBitrate: minBitrate,
 		},
@@ -138,7 +138,7 @@ func NewMultiUpdateEncoder(ctx context.Context, config MultiConfig, builder *Gen
 		// TODO: Frame pool could be abstracted away
 		producer := newDummyMediaFrameProducer(buffer.NewChannelBufferWithGenerator(ctx2, buffer.CreateFramePool(), 10, 1), describer)
 
-		if err := builder.UpdateBitrate(bitrate); err != nil {
+		if err := builder.AdaptBitrate(bitrate); err != nil {
 			return nil, err
 		}
 
@@ -179,7 +179,7 @@ func (u *MultiUpdateEncoder) Stop() {
 	u.cancel()
 }
 
-func (u *MultiUpdateEncoder) UpdateBitrate(bps int64) error {
+func (u *MultiUpdateEncoder) AdaptBitrate(bps int64) error {
 	if err := u.checkPause(bps); err != nil {
 		return err
 	}

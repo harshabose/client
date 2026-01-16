@@ -29,8 +29,16 @@ type CanSetEncoderCodecSettings interface {
 	SetEncoderCodecSettings(codecSettings) error
 }
 
-type CanUpdateBitrate interface {
-	UpdateBitrate(int64) error
+type CanAdaptBitrate interface {
+	AdaptBitrate(int64) error
+}
+
+type CanAdaptFPS interface {
+	AdaptFPS(uint8) error
+}
+
+type CanGetCurrentFPS interface {
+	GetCurrentFPS() (uint8, error)
 }
 
 type CanGetCurrentBitrate interface {

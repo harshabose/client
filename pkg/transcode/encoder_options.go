@@ -58,7 +58,7 @@ func (x264 *X264Opts) ForEach(fn func(string, string) error) error {
 	return nil
 }
 
-func (x264 *X264Opts) UpdateBitrate(bps int64) error {
+func (x264 *X264Opts) AdaptBitrate(bps int64) error {
 	x264.Bitrate = fmt.Sprintf("%d", bps/1000)
 	x264.VBVMaxBitrate = fmt.Sprintf("%d", (bps/1000)+200)
 	x264.VBVBuffer = fmt.Sprintf("%d", bps/2000)
@@ -109,8 +109,8 @@ func (s *X264OpenSettings) ForEach(fn func(key, value string) error) error {
 	return s.X264Opts.ForEach(fn)
 }
 
-func (s *X264OpenSettings) UpdateBitrate(bps int64) error {
-	return s.X264Opts.UpdateBitrate(bps)
+func (s *X264OpenSettings) AdaptBitrate(bps int64) error {
+	return s.X264Opts.AdaptBitrate(bps)
 }
 
 var DefaultX264Settings = X264OpenSettings{

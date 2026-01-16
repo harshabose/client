@@ -47,8 +47,6 @@ func (bwc *BWEController) set(estimator cc.BandwidthEstimator, interval time.Dur
 	bwc.mux.Lock()
 	defer bwc.mux.Unlock()
 
-	fmt.Println("setting estimator")
-
 	bwc.estimator = estimator
 	bwc.interval = interval
 }

@@ -28,13 +28,13 @@ func NewEncoderBuilder(codecID astiav.CodecID, settings codecSettings, producer 
 	}
 }
 
-func (b *GeneralEncoderBuilder) UpdateBitrate(bps int64) error {
-	s, ok := b.settings.(CanUpdateBitrate)
+func (b *GeneralEncoderBuilder) AdaptBitrate(bps int64) error {
+	s, ok := b.settings.(CanAdaptBitrate)
 	if !ok {
 		return ErrorInterfaceMismatch
 	}
 
-	return s.UpdateBitrate(bps)
+	return s.AdaptBitrate(bps)
 }
 
 func (b *GeneralEncoderBuilder) BuildWithProducer(ctx context.Context, producer CanProduceMediaFrame) (Encoder, error) {

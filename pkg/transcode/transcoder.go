@@ -99,15 +99,42 @@ func (t *Transcoder) GetParameterSets() (sps, pps []byte, err error) {
 	return p.GetParameterSets()
 }
 
-func (t *Transcoder) UpdateBitrate(bps int64) error {
-	u, ok := t.encoder.(CanUpdateBitrate)
-	if !ok {
-		return ErrorInterfaceMismatch
+func (t *Transcoder) AdaptBitrate(bps int64) error {
+	f, ok := t.filter.(CanAdaptBitrate)
+	if ok {
+		if err := f.AdaptBitrate(bps); err != nil {
+			return err
+		}
 	}
 
-	return u.UpdateBitrate(bps)
+	u, ok := t.encoder.(CanAdaptBitrate)
+	if ok {
+		if err := u.AdaptBitrate(bps); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *Transcoder) GetCurrentBitrate() (int64, error) {
+	e, ok := t.encoder.(CanGetCurrentBitrate)
+	if ok {
+		return e.GetCurrentBitrate()
+	}
+
+	return 0, ErrorInterfaceMismatch
+}
+
+func (t *Transcoder) GetCurrentFPS() (uint8, error) {
+	f, ok := t.filter.(CanGetCurrentFPS)
+	if ok {
+		return f.GetCurrentFPS()
+	}
+
+	return 0, ErrorInterfaceMismatch
 }
 
 func (t *Transcoder) OnUpdateBitrate() UpdateBitrateCallBack {
-	return t.UpdateBitrate
+	return t.AdaptBitrate
 }

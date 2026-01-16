@@ -15,14 +15,14 @@ import (
 	"github.com/harshabose/tools/pkg/buffer"
 )
 
-type UpdateConfig struct {
+type UpdateEncoderConfig struct {
 	MaxBitrate, MinBitrate  int64
 	CutVideoBelowMinBitrate bool
 }
 
-func (c UpdateConfig) validate() error {
+func (c UpdateEncoderConfig) validate() error {
 	if c.MinBitrate > c.MaxBitrate {
-		return fmt.Errorf("minimum bitrate is higher than maximum bitrate in the update encoder config")
+		return fmt.Errorf("update encoder config: minimum bitrate is higher than maximum bitrate ")
 	}
 
 	return nil
@@ -30,7 +30,7 @@ func (c UpdateConfig) validate() error {
 
 type UpdateEncoder struct {
 	encoder Encoder
-	config  UpdateConfig
+	config  UpdateEncoderConfig
 	builder *GeneralEncoderBuilder
 	buffer  buffer.BufferWithGenerator[*astiav.Packet]
 	mux     sync.RWMutex
@@ -41,7 +41,7 @@ type UpdateEncoder struct {
 	pauseMux sync.Mutex
 }
 
-func NewUpdateEncoder(ctx context.Context, config UpdateConfig, builder *GeneralEncoderBuilder) (*UpdateEncoder, error) {
+func NewUpdateEncoder(ctx context.Context, config UpdateEncoderConfig, builder *GeneralEncoderBuilder) (*UpdateEncoder, error) {
 	updater := &UpdateEncoder{
 		config:  config,
 		builder: builder,
@@ -98,10 +98,9 @@ func (u *UpdateEncoder) Stop() {
 	u.encoder.Stop()
 }
 
-// UpdateBitrate modifies the encoder's target bitrate to the specified value in bits per second.
+// AdaptToBitrate modifies the encoder's target bitrate to the specified value in bits per second.
 // Returns an error if the update fails.
-func (u *UpdateEncoder) UpdateBitrate(bps int64) error {
-	// return nil
+func (u *UpdateEncoder) AdaptBitrate(bps int64) error {
 	if err := u.checkPause(bps); err != nil {
 		return err
 	}
@@ -122,10 +121,8 @@ func (u *UpdateEncoder) UpdateBitrate(bps int64) error {
 	if change < 5 {
 		return nil
 	}
-	fmt.Printf("got bitrate update request (%d -> %d)\n", current, bps)
 
-	start := time.Now()
-	if err := u.builder.UpdateBitrate(bps); err != nil {
+	if err := u.builder.AdaptBitrate(bps); err != nil {
 		return err
 	}
 
@@ -140,16 +137,6 @@ func (u *UpdateEncoder) UpdateBitrate(bps int64) error {
 	oldEncoder := u.encoder
 	u.encoder = newEncoder
 	u.mux.Unlock()
-
-	// Print encoder update notification
-	fmt.Println()
-	fmt.Println("╔═══════════════════════════════════════╗")
-	fmt.Println("║        🎥 ENCODER UPDATED 🎥          ║")
-	fmt.Printf("║      New Bitrate: %6d kbps          ║\n", bps/1000)
-	fmt.Printf("║      Change(%%): %6.2f                   ║\n", change)
-	fmt.Printf("║      Update time: %6d ms            ║\n", time.Since(start).Milliseconds())
-	fmt.Println("╚═══════════════════════════════════════╝")
-	fmt.Println()
 
 	if oldEncoder != nil {
 		oldEncoder.Stop()
@@ -264,7 +251,6 @@ func (u *UpdateEncoder) loop() {
 			if err := u.pushPacket(p); err != nil {
 				fmt.Println(err.Error())
 			}
-			// time.Sleep(10 * time.Millisecond)
 		}
 	}
 }
