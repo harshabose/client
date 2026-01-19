@@ -12,11 +12,6 @@ type CanAddToFilterContent interface {
 	AddToFilterContent(string)
 }
 
-type CanPauseUnPauseEncoder interface {
-	PauseEncoding() error
-	UnPauseEncoding() error
-}
-
 type CanGetParameterSets interface {
 	GetParameterSets() (sps, pps []byte, err error)
 }

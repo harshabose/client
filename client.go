@@ -15,6 +15,11 @@ import (
 	"github.com/harshabose/tools/pkg/multierr"
 )
 
+type estimator struct {
+	e        cc.BandwidthEstimator
+	interval time.Duration
+}
+
 type Client struct {
 	pcs                 map[string]*PeerConnection
 	mediaEngine         *webrtc.MediaEngine
@@ -22,8 +27,8 @@ type Client struct {
 	interceptorRegistry *interceptor.Registry
 	api                 *webrtc.API
 
-	estimatorChan chan cc.BandwidthEstimator
-	getterChan    chan stats.Getter
+	estimator  chan estimator
+	getterChan chan stats.Getter
 
 	mux sync.RWMutex
 	ctx context.Context
@@ -51,7 +56,7 @@ func NewClient(
 		interceptorRegistry: interceptorRegistry,
 		settingsEngine:      settings,
 		pcs:                 make(map[string]*PeerConnection),
-		estimatorChan:       make(chan cc.BandwidthEstimator, 10),
+		estimator:           make(chan estimator, 10),
 		ctx:                 ctx,
 	}
 
@@ -94,8 +99,8 @@ func (c *Client) CreatePeerConnectionWithBWEstimator(label string, config webrtc
 	// TODO: THE WEIRD DESIGN OF CC INTERCEPTOR IN PION. TRACK THE ISSUE WITH "https://github.com/pion/webrtc/issues/3053"
 	if pc.bwc != nil {
 		select {
-		case estimator := <-c.estimatorChan:
-			pc.bwc.set(estimator, 500*time.Millisecond)
+		case e := <-c.estimator:
+			pc.bwc.set(e.e, e.interval)
 		}
 	}
 

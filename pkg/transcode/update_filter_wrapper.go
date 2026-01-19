@@ -7,11 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/asticode/go-astiav"
 
-	"github.com/harshabose/tools/pkg/buffer"
+	"github.com/harshabose/tools/pkg/cond"
+)
+
+var (
+	ErrUpdateFilterNotReady = errors.New("update filter not in ready state")
 )
 
 type UpdateFilterConfig struct {
@@ -33,94 +36,90 @@ type UpdateFilter struct {
 	config  UpdateFilterConfig
 	builder *GeneralFilterBuilder
 
-	buffer buffer.BufferWithGenerator[*astiav.Frame]
-	mux    sync.RWMutex
-
-	// wg     sync.WaitGroup // TODO: ADD CLOSE METHODS ON TRANSCODER ELEMENTS
-	ctx context.Context
-	// cancel context.CancelFunc
+	cond *cond.ContextCond
+	ctx  context.Context
 }
 
 func (f *UpdateFilter) MediaType() astiav.MediaType {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).MediaType()
 }
 
 func (f *UpdateFilter) FrameRate() astiav.Rational {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).FrameRate()
 }
 
 func (f *UpdateFilter) TimeBase() astiav.Rational {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).TimeBase()
 }
 
 func (f *UpdateFilter) Height() int {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).Height()
 }
 
 func (f *UpdateFilter) Width() int {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).Width()
 }
 
 func (f *UpdateFilter) PixelFormat() astiav.PixelFormat {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).PixelFormat()
 }
 
 func (f *UpdateFilter) SampleAspectRatio() astiav.Rational {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).SampleAspectRatio()
 }
 
 func (f *UpdateFilter) ColorSpace() astiav.ColorSpace {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).ColorSpace()
 }
 
 func (f *UpdateFilter) ColorRange() astiav.ColorRange {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).ColorRange()
 }
 
 func (f *UpdateFilter) SampleRate() int {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).SampleRate()
 }
 
 func (f *UpdateFilter) SampleFormat() astiav.SampleFormat {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).SampleFormat()
 }
 
 func (f *UpdateFilter) ChannelLayout() astiav.ChannelLayout {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	return f.filter.(CanDescribeMediaFrame).ChannelLayout()
 }
@@ -143,43 +142,54 @@ func NewUpdateFilter(ctx context.Context, config UpdateFilterConfig, builder *Ge
 		filter:  f,
 		config:  config,
 		builder: builder,
-		buffer:  buffer.NewChannelBufferWithGenerator(ctx, buffer.CreateFramePool(), 30, 1), // TODO: CHANGE THIS ASAP
-		mux:     sync.RWMutex{},
+		cond:    cond.NewContextCond(&sync.Mutex{}),
 		ctx:     ctx,
 	}
-
-	go filter.loop()
 
 	return filter, nil
 }
 
-func (f *UpdateFilter) Ctx() context.Context {
-	return f.ctx
-}
-
 func (f *UpdateFilter) Start() {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	f.filter.Start()
 }
 
 func (f *UpdateFilter) GetFrame(ctx context.Context) (*astiav.Frame, error) {
-	return f.buffer.Pop(ctx)
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
+
+	for {
+		if f.filter == nil {
+			if err := f.cond.Wait(ctx); err != nil {
+				return nil, ErrUpdateFilterNotReady
+			}
+
+			continue
+		}
+
+		frame, err := f.filter.GetFrame(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return frame, nil
+	}
 }
 
 func (f *UpdateFilter) PutBack(frame *astiav.Frame) {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
 	f.filter.PutBack(frame)
 }
 
-func (f *UpdateFilter) Stop() {
-	f.mux.Lock()
-	defer f.mux.Unlock()
+func (f *UpdateFilter) Close() {
+	f.cond.L.Lock()
+	defer f.cond.L.Unlock()
 
-	f.filter.Stop()
+	f.filter.Close()
 }
 
 func (f *UpdateFilter) AdaptBitrate(bps int64) error {
@@ -199,13 +209,15 @@ func (f *UpdateFilter) AdaptBitrate(bps int64) error {
 
 	nf.Start()
 
-	f.mux.Lock()
+	f.cond.L.Lock()
 	old := f.filter
 	f.filter = nf
-	f.mux.Unlock()
+	f.cond.L.Unlock()
+
+	f.cond.Broadcast()
 
 	if old != nil {
-		old.Stop()
+		old.Close()
 	}
 
 	return nil
@@ -213,54 +225,4 @@ func (f *UpdateFilter) AdaptBitrate(bps int64) error {
 
 func (f *UpdateFilter) GetCurrentFPS() (uint8, error) {
 	return f.builder.GetCurrentFPS()
-}
-
-func (f *UpdateFilter) getFrame() (*astiav.Frame, error) {
-	f.mux.RLock()
-	defer f.mux.RUnlock()
-
-	if f.filter != nil {
-		ctx2, cancel2 := context.WithTimeout(f.ctx, 100*time.Millisecond)
-		defer cancel2()
-
-		frame, err := f.filter.GetFrame(ctx2)
-		if err != nil {
-			return nil, err
-		}
-
-		return frame, nil
-	}
-
-	return nil, errors.New("filter is nil")
-}
-
-func (f *UpdateFilter) pushFrame(frame *astiav.Frame) error {
-	if frame == nil {
-		return nil
-	}
-
-	ctx2, cancel2 := context.WithTimeout(f.ctx, 100*time.Millisecond)
-	defer cancel2()
-
-	return f.buffer.Push(ctx2, frame)
-}
-
-func (f *UpdateFilter) loop() {
-	for {
-		select {
-		case <-f.ctx.Done():
-			return
-		default:
-			frame, err := f.getFrame()
-			if err != nil {
-				fmt.Printf("error getting frame from update filter; err=%v\n", err)
-				continue
-			}
-
-			if err := f.pushFrame(frame); err != nil {
-				fmt.Printf("error pushing frame in update filter; err=%v\n", err)
-				continue
-			}
-		}
-	}
 }

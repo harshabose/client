@@ -4,7 +4,6 @@ package transcode
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"sync"
@@ -27,6 +26,7 @@ type GeneralEncoder struct {
 	pps             []byte
 
 	once   sync.Once
+	wg     sync.WaitGroup
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -81,101 +81,102 @@ func CreateGeneralEncoder(ctx context.Context, codecID astiav.CodecID, canProduc
 	return encoder, nil
 }
 
-func (encoder *GeneralEncoder) Ctx() context.Context {
-	return encoder.ctx
+func (e *GeneralEncoder) Start() {
+	go e.loop()
 }
 
-func (encoder *GeneralEncoder) Start() {
-	go encoder.loop()
+func (e *GeneralEncoder) GetParameterSets() ([]byte, []byte, error) {
+	e.findParameterSets(e.encoderContext.ExtraData())
+	return e.sps, e.pps, nil
 }
 
-func (encoder *GeneralEncoder) GetParameterSets() ([]byte, []byte, error) {
-	encoder.findParameterSets(encoder.encoderContext.ExtraData())
-	return encoder.sps, encoder.pps, nil
+func (e *GeneralEncoder) TimeBase() astiav.Rational {
+	return e.encoderContext.TimeBase()
 }
 
-func (encoder *GeneralEncoder) TimeBase() astiav.Rational {
-	return encoder.encoderContext.TimeBase()
-}
-
-func (encoder *GeneralEncoder) loop() {
-	defer encoder.close()
+func (e *GeneralEncoder) loop() {
+	e.wg.Add(1)
+	defer e.wg.Done()
 
 loop1:
 	for {
 		select {
-		case <-encoder.ctx.Done():
+		case <-e.ctx.Done():
 			return
 		default:
-			frame, err := encoder.getFrame()
+			frame, err := e.getFrame()
 			if err != nil {
 				continue
 			}
-			if err := encoder.encoderContext.SendFrame(frame); err != nil {
-				encoder.producer.PutBack(frame)
+			if err := e.encoderContext.SendFrame(frame); err != nil {
+				e.producer.PutBack(frame)
 				if !errors.Is(err, astiav.ErrEagain) {
 					continue loop1
 				}
 			}
 		loop2:
 			for {
-				packet := encoder.buffer.Get()
-				if err = encoder.encoderContext.ReceivePacket(packet); err != nil {
-					encoder.buffer.Put(packet)
+				packet := e.buffer.Get()
+				if err = e.encoderContext.ReceivePacket(packet); err != nil {
+					e.buffer.Put(packet)
 					break loop2
 				}
 
-				if err := encoder.pushPacket(packet); err != nil {
-					encoder.buffer.Put(packet)
+				if err := e.pushPacket(packet); err != nil {
+					e.buffer.Put(packet)
 					continue loop2
 				}
 			}
-			encoder.producer.PutBack(frame)
+			e.producer.PutBack(frame)
 		}
 	}
 }
 
-func (encoder *GeneralEncoder) getFrame() (*astiav.Frame, error) {
-	ctx, cancel := context.WithTimeout(encoder.ctx, 100*time.Millisecond)
+func (e *GeneralEncoder) getFrame() (*astiav.Frame, error) {
+	ctx, cancel := context.WithTimeout(e.ctx, 100*time.Millisecond)
 	defer cancel()
 
-	return encoder.producer.GetFrame(ctx)
+	return e.producer.GetFrame(ctx)
 }
 
-func (encoder *GeneralEncoder) GetPacket(ctx context.Context) (*astiav.Packet, error) {
-	return encoder.buffer.Pop(ctx)
+func (e *GeneralEncoder) GetPacket(ctx context.Context) (*astiav.Packet, error) {
+	return e.buffer.Pop(ctx)
 }
 
-func (encoder *GeneralEncoder) pushPacket(packet *astiav.Packet) error {
-	ctx, cancel := context.WithTimeout(encoder.ctx, 100*time.Millisecond)
+func (e *GeneralEncoder) pushPacket(packet *astiav.Packet) error {
+	ctx, cancel := context.WithTimeout(e.ctx, 100*time.Millisecond)
 	defer cancel()
 
-	return encoder.buffer.Push(ctx, packet)
+	return e.buffer.Push(ctx, packet)
 }
 
-func (encoder *GeneralEncoder) PutBack(packet *astiav.Packet) {
-	encoder.buffer.Put(packet)
+func (e *GeneralEncoder) PutBack(packet *astiav.Packet) {
+	e.buffer.Put(packet)
 }
 
-func (encoder *GeneralEncoder) Stop() {
-	encoder.once.Do(func() {
-		if encoder.cancel != nil {
-			encoder.cancel()
+func (e *GeneralEncoder) Close() {
+	e.once.Do(func() {
+		if e.cancel != nil {
+			e.cancel()
 		}
+
+		e.wg.Wait()
+
+		e.close()
 	})
 }
 
-func (encoder *GeneralEncoder) close() {
-	if encoder.encoderContext != nil {
-		encoder.encoderContext.Free()
+func (e *GeneralEncoder) close() {
+	if e.encoderContext != nil {
+		e.encoderContext.Free()
 	}
 
-	if encoder.codecFlags != nil {
-		encoder.codecFlags.Free()
+	if e.codecFlags != nil {
+		e.codecFlags.Free()
 	}
 }
 
-func (encoder *GeneralEncoder) findParameterSets(extraData []byte) {
+func (e *GeneralEncoder) findParameterSets(extraData []byte) {
 	if len(extraData) > 0 {
 		// Find the first start code (0x00000001)
 		for i := 0; i < len(extraData)-4; i++ {
@@ -193,39 +194,39 @@ func (encoder *GeneralEncoder) findParameterSets(extraData []byte) {
 				}
 
 				if nalType == 7 { // SPS
-					encoder.sps = make([]byte, nextStart-i)
-					copy(encoder.sps, extraData[i:nextStart])
+					e.sps = make([]byte, nextStart-i)
+					copy(e.sps, extraData[i:nextStart])
 				} else if nalType == 8 { // PPS
-					encoder.pps = make([]byte, len(extraData)-i)
-					copy(encoder.pps, extraData[i:])
+					e.pps = make([]byte, len(extraData)-i)
+					copy(e.pps, extraData[i:])
 				}
 
 				i = nextStart - 1
 			}
 		}
-		fmt.Println("SPS for current encoder: ", encoder.sps)
-		fmt.Println("\tSPS for current encoder in Base64:", base64.StdEncoding.EncodeToString(encoder.sps))
-		fmt.Println("PPS for current encoder: ", encoder.pps)
-		fmt.Println("\tPPS for current encoder in Base64:", base64.StdEncoding.EncodeToString(encoder.pps))
+		// fmt.Println("SPS for current encoder: ", e.sps)
+		// fmt.Println("\tSPS for current encoder in Base64:", base64.StdEncoding.EncodeToString(e.sps))
+		// fmt.Println("PPS for current encoder: ", e.pps)
+		// fmt.Println("\tPPS for current encoder in Base64:", base64.StdEncoding.EncodeToString(e.pps))
 	}
 }
 
-func (encoder *GeneralEncoder) SetBuffer(buffer buffer.BufferWithGenerator[*astiav.Packet]) {
-	encoder.buffer = buffer
+func (e *GeneralEncoder) SetBuffer(buffer buffer.BufferWithGenerator[*astiav.Packet]) {
+	e.buffer = buffer
 }
 
-func (encoder *GeneralEncoder) SetEncoderCodecSettings(settings codecSettings) error {
-	encoder.encoderSettings = settings
-	return encoder.encoderSettings.ForEach(func(key string, value string) error {
+func (e *GeneralEncoder) SetEncoderCodecSettings(settings codecSettings) error {
+	e.encoderSettings = settings
+	return e.encoderSettings.ForEach(func(key string, value string) error {
 		if value == "" {
 			return nil
 		}
-		return encoder.codecFlags.Set(key, value, 0)
+		return e.codecFlags.Set(key, value, 0)
 	})
 }
 
-func (encoder *GeneralEncoder) GetCurrentBitrate() (int64, error) {
-	g, ok := encoder.encoderSettings.(CanGetCurrentBitrate)
+func (e *GeneralEncoder) GetCurrentBitrate() (int64, error) {
+	g, ok := e.encoderSettings.(CanGetCurrentBitrate)
 	if !ok {
 		return 0, ErrorInterfaceMismatch
 	}

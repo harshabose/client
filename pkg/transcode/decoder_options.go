@@ -3,6 +3,8 @@
 package transcode
 
 import (
+	"context"
+
 	"github.com/asticode/go-astiav"
 
 	"github.com/harshabose/tools/pkg/buffer"
@@ -49,13 +51,14 @@ func withAudioSetDecoderContext(demuxer CanDescribeMediaPacket) DecoderOption {
 	}
 }
 
-func WithDecoderBuffer(size int, pool buffer.Pool[*astiav.Frame]) DecoderOption {
+func WithDecoderBuffer(ctx context.Context, size int, pool buffer.Pool[*astiav.Frame]) DecoderOption {
 	return func(decoder Decoder) error {
 		s, ok := decoder.(CanSetBuffer[*astiav.Frame])
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.NewChannelBufferWithGenerator(decoder.Ctx(), pool, uint(size), 1))
+
+		s.SetBuffer(buffer.NewChannelBufferWithGenerator(ctx, pool, uint(size), 1))
 		return nil
 	}
 }

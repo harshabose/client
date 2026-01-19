@@ -48,11 +48,11 @@ func (t *Transcoder) Start() {
 	t.encoder.Start()
 }
 
-func (t *Transcoder) Stop() {
-	t.encoder.Stop()
-	t.filter.Stop()
-	t.decoder.Stop()
-	t.demuxer.Stop()
+func (t *Transcoder) Close() {
+	t.encoder.Close()
+	t.filter.Close()
+	t.decoder.Close()
+	t.demuxer.Close()
 }
 
 func (t *Transcoder) GetPacket(ctx context.Context) (*astiav.Packet, error) {
@@ -63,31 +63,13 @@ func (t *Transcoder) PutBack(packet *astiav.Packet) {
 	t.encoder.PutBack(packet)
 }
 
-// Generate method is to satisfy mediapipe.CanGenerate interface. TODO: but I would prefer to integrate with PutBack
+// Generate method is to satisfy mediapipe.CanGenerate interface.
 func (t *Transcoder) Generate(ctx context.Context) (*astiav.Packet, error) {
 	packet, err := t.encoder.GetPacket(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return packet, nil
-}
-
-func (t *Transcoder) PauseEncoding() error {
-	p, ok := t.encoder.(CanPauseUnPauseEncoder)
-	if !ok {
-		return ErrorInterfaceMismatch
-	}
-
-	return p.PauseEncoding()
-}
-
-func (t *Transcoder) UnPauseEncoding() error {
-	p, ok := t.encoder.(CanPauseUnPauseEncoder)
-	if !ok {
-		return ErrorInterfaceMismatch
-	}
-
-	return p.UnPauseEncoding()
 }
 
 func (t *Transcoder) GetParameterSets() (sps, pps []byte, err error) {
@@ -112,9 +94,11 @@ func (t *Transcoder) AdaptBitrate(bps int64) error {
 		if err := u.AdaptBitrate(bps); err != nil {
 			return err
 		}
+
+		return nil
 	}
 
-	return nil
+	return ErrorInterfaceMismatch
 }
 
 func (t *Transcoder) GetCurrentBitrate() (int64, error) {

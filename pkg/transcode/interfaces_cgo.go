@@ -100,29 +100,25 @@ type CanSetMediaPacket interface {
 }
 
 type Demuxer interface {
-	Ctx() context.Context
 	Start()
-	Stop()
+	Close()
 	CanProduceMediaPacket
 }
 
 type Decoder interface {
-	Ctx() context.Context
 	Start()
-	Stop()
+	Close()
 	CanProduceMediaFrame
 }
 
 type Filter interface {
-	Ctx() context.Context
 	Start()
-	Stop()
+	Close()
 	CanProduceMediaFrame
 }
 
 type Encoder interface {
-	Ctx() context.Context
 	Start()
-	Stop()
+	Close()
 	CanProduceMediaPacket
 }

@@ -4,29 +4,21 @@ package transcode
 
 import (
 	"context"
-
-	"github.com/asticode/go-astiav"
-
-	"github.com/harshabose/tools/pkg/buffer"
 )
 
 type GeneralFilterBuilder struct {
 	producer CanProduceMediaFrame
 	config   FilterConfig
-	bufsize  int
-	pool     buffer.Pool[*astiav.Frame]
 	options  []FilterOption
 
 	fps       uint8
 	fpsOption FilterOption
 }
 
-func NewGeneralFilterBuilder(config FilterConfig, producer CanProduceMediaFrame, bufsize int, pool buffer.Pool[*astiav.Frame], options ...FilterOption) *GeneralFilterBuilder {
+func NewGeneralFilterBuilder(config FilterConfig, producer CanProduceMediaFrame, options ...FilterOption) *GeneralFilterBuilder {
 	return &GeneralFilterBuilder{
 		producer: producer,
 		config:   config,
-		bufsize:  bufsize,
-		pool:     pool,
 		options:  options,
 	}
 }

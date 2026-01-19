@@ -93,18 +93,18 @@ func newSplitEncoder(encoder *GeneralEncoder, producer *dummyMediaFrameProducer)
 	}
 }
 
+// MultiUpdateEncoder is deprecated
 type MultiUpdateEncoder struct {
 	encoders []*splitEncoder
 	active   atomic.Pointer[splitEncoder]
 	config   MultiConfig
 	bitrates []int64
 	producer CanProduceMediaFrame
-	ctx      context.Context
-	cancel   context.CancelFunc
 
-	paused   atomic.Bool
-	resume   chan struct{}
-	pauseMux sync.Mutex
+	once   sync.Once
+	wg     sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func NewMultiUpdateEncoder(ctx context.Context, config MultiConfig, builder *GeneralEncoderBuilder) (*MultiUpdateEncoder, error) {
@@ -112,15 +112,14 @@ func NewMultiUpdateEncoder(ctx context.Context, config MultiConfig, builder *Gen
 		return nil, err
 	}
 
-	ctx2, cancel := context.WithCancel(ctx)
+	ctx2, cancel2 := context.WithCancel(ctx)
 	encoder := &MultiUpdateEncoder{
 		encoders: make([]*splitEncoder, 0),
 		config:   config,
 		bitrates: config.getBitrates(),
 		producer: builder.producer,
 		ctx:      ctx2,
-		cancel:   cancel,
-		resume:   make(chan struct{}),
+		cancel:   cancel2,
 	}
 
 	describer, ok := encoder.producer.(CanDescribeMediaFrame)
@@ -155,10 +154,6 @@ func NewMultiUpdateEncoder(ctx context.Context, config MultiConfig, builder *Gen
 	return encoder, nil
 }
 
-func (u *MultiUpdateEncoder) Ctx() context.Context {
-	return u.ctx
-}
-
 func (u *MultiUpdateEncoder) Start() {
 	for _, encoder := range u.encoders {
 		encoder.encoder.Start()
@@ -175,15 +170,17 @@ func (u *MultiUpdateEncoder) PutBack(packet *astiav.Packet) {
 	u.active.Load().encoder.PutBack(packet)
 }
 
-func (u *MultiUpdateEncoder) Stop() {
-	u.cancel()
+func (u *MultiUpdateEncoder) Close() {
+	u.once.Do(func() {
+		if u.cancel != nil {
+			u.cancel()
+		}
+
+		u.wg.Wait()
+	})
 }
 
 func (u *MultiUpdateEncoder) AdaptBitrate(bps int64) error {
-	if err := u.checkPause(bps); err != nil {
-		return err
-	}
-
 	bps = u.cutoff(bps)
 
 	bestIndex := u.findBestEncoderIndex(bps)
@@ -223,42 +220,13 @@ func (u *MultiUpdateEncoder) cutoff(bps int64) int64 {
 	return bps
 }
 
-func (u *MultiUpdateEncoder) shouldPause(bps int64) bool {
-	return bps <= u.config.MinBitrate && u.config.CutVideoBelowMinBitrate
-}
-
-func (u *MultiUpdateEncoder) checkPause(bps int64) error {
-	shouldPause := u.shouldPause(bps)
-
-	if shouldPause {
-		fmt.Println("pausing video...")
-		return u.PauseEncoding()
-	}
-	return u.UnPauseEncoding()
-}
-
-func (u *MultiUpdateEncoder) PauseEncoding() error {
-	u.paused.Store(true)
-	return nil
-}
-
-func (u *MultiUpdateEncoder) UnPauseEncoding() error {
-	u.pauseMux.Lock()
-	defer u.pauseMux.Unlock()
-
-	if u.paused.Swap(false) {
-		close(u.resume)
-		u.resume = make(chan struct{})
-	}
-	return nil
-}
-
 func (u *MultiUpdateEncoder) GetParameterSets() (sps []byte, pps []byte, err error) {
 	return u.active.Load().encoder.GetParameterSets()
 }
 
 func (u *MultiUpdateEncoder) loop() {
-	defer u.close()
+	u.wg.Add(1)
+	defer u.wg.Done()
 
 	for {
 		select {
@@ -282,7 +250,7 @@ func (u *MultiUpdateEncoder) loop() {
 }
 
 func (u *MultiUpdateEncoder) getFrame() (*astiav.Frame, error) {
-	ctx, cancel := context.WithTimeout(u.ctx, 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(u.ctx, 100*time.Millisecond)
 	defer cancel()
 
 	return u.producer.GetFrame(ctx)
@@ -307,8 +275,4 @@ func (u *MultiUpdateEncoder) pushFrame(encoder *splitEncoder, frame *astiav.Fram
 
 	// PUT IN BUFFER
 	return encoder.producer.pushFrame(ctx, refFrame)
-}
-
-func (u *MultiUpdateEncoder) close() {
-
 }

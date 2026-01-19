@@ -7,17 +7,19 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/asticode/go-astiav"
 
-	"github.com/harshabose/tools/pkg/buffer"
+	"github.com/harshabose/tools/pkg/cond"
+)
+
+var (
+	ErrUpdateEncoderNotReady = errors.New("update encoder not in ready state")
 )
 
 type UpdateEncoderConfig struct {
-	MaxBitrate, MinBitrate  int64
-	CutVideoBelowMinBitrate bool
+	MaxBitrate, MinBitrate     int64
+	MinBitrateChangePercentage float64
 }
 
 func (c UpdateEncoderConfig) validate() error {
@@ -32,21 +34,16 @@ type UpdateEncoder struct {
 	encoder Encoder
 	config  UpdateEncoderConfig
 	builder *GeneralEncoderBuilder
-	buffer  buffer.BufferWithGenerator[*astiav.Packet]
-	mux     sync.RWMutex
-	ctx     context.Context
 
-	paused   atomic.Bool
-	resume   chan struct{}
-	pauseMux sync.Mutex
+	cond *cond.ContextCond
+	ctx  context.Context
 }
 
 func NewUpdateEncoder(ctx context.Context, config UpdateEncoderConfig, builder *GeneralEncoderBuilder) (*UpdateEncoder, error) {
 	updater := &UpdateEncoder{
 		config:  config,
 		builder: builder,
-		resume:  make(chan struct{}),
-		buffer:  buffer.NewChannelBufferWithGenerator(ctx, buffer.CreatePacketPool(), 30, 1),
+		cond:    cond.NewContextCond(&sync.Mutex{}),
 		ctx:     ctx,
 	}
 
@@ -61,50 +58,52 @@ func NewUpdateEncoder(ctx context.Context, config UpdateEncoderConfig, builder *
 
 	updater.encoder = encoder
 
-	go updater.loop()
-
 	return updater, nil
 }
 
-func (u *UpdateEncoder) Ctx() context.Context {
-	u.mux.Lock()
-	defer u.mux.Unlock()
-
-	return u.encoder.Ctx()
-}
-
 func (u *UpdateEncoder) Start() {
-	u.mux.Lock()
-	defer u.mux.Unlock()
+	u.cond.L.Lock()
+	defer u.cond.L.Unlock()
 
 	u.encoder.Start()
 }
 
 func (u *UpdateEncoder) GetPacket(ctx context.Context) (*astiav.Packet, error) {
-	return u.buffer.Pop(ctx)
+	u.cond.L.Lock()
+	defer u.cond.L.Unlock()
+
+	for {
+		if u.encoder == nil {
+			if err := u.cond.Wait(ctx); err != nil {
+				return nil, ErrUpdateEncoderNotReady
+			}
+
+			continue
+		}
+		p, err := u.encoder.GetPacket(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return p, nil
+	}
 }
 
 func (u *UpdateEncoder) PutBack(packet *astiav.Packet) {
-	u.mux.RLock()
-	defer u.mux.RUnlock()
+	u.cond.L.Lock()
+	defer u.cond.L.Unlock()
 
 	u.encoder.PutBack(packet)
 }
 
-func (u *UpdateEncoder) Stop() {
-	u.mux.Lock()
-	defer u.mux.Unlock()
+func (u *UpdateEncoder) Close() {
+	u.cond.L.Lock()
+	defer u.cond.L.Unlock()
 
-	u.encoder.Stop()
+	u.encoder.Close()
 }
 
-// AdaptToBitrate modifies the encoder's target bitrate to the specified value in bits per second.
-// Returns an error if the update fails.
 func (u *UpdateEncoder) AdaptBitrate(bps int64) error {
-	if err := u.checkPause(bps); err != nil {
-		return err
-	}
-
 	bps = u.cutoff(bps)
 
 	g, ok := u.encoder.(CanGetCurrentBitrate)
@@ -118,7 +117,7 @@ func (u *UpdateEncoder) AdaptBitrate(bps int64) error {
 	}
 
 	_, change := calculateBitrateChange(current, bps)
-	if change < 5 {
+	if change < u.config.MinBitrateChangePercentage {
 		return nil
 	}
 
@@ -128,18 +127,20 @@ func (u *UpdateEncoder) AdaptBitrate(bps int64) error {
 
 	newEncoder, err := u.builder.Build(u.ctx)
 	if err != nil {
-		return fmt.Errorf("build new encoder: %w", err)
+		return err
 	}
 
 	newEncoder.Start()
 
-	u.mux.Lock()
+	u.cond.L.Lock()
 	oldEncoder := u.encoder
 	u.encoder = newEncoder
-	u.mux.Unlock()
+	u.cond.L.Unlock()
+
+	u.cond.Broadcast()
 
 	if oldEncoder != nil {
-		oldEncoder.Stop()
+		oldEncoder.Close()
 	}
 
 	return nil
@@ -155,36 +156,6 @@ func (u *UpdateEncoder) cutoff(bps int64) int64 {
 	}
 
 	return bps
-}
-
-func (u *UpdateEncoder) shouldPause(bps int64) bool {
-	return bps <= u.config.MinBitrate && u.config.CutVideoBelowMinBitrate
-}
-
-func (u *UpdateEncoder) checkPause(bps int64) error {
-	shouldPause := u.shouldPause(bps)
-
-	if shouldPause {
-		fmt.Println("pausing video...")
-		return u.PauseEncoding()
-	}
-	return u.UnPauseEncoding()
-}
-
-func (u *UpdateEncoder) PauseEncoding() error {
-	u.paused.Store(true)
-	return nil
-}
-
-func (u *UpdateEncoder) UnPauseEncoding() error {
-	u.pauseMux.Lock()
-	defer u.pauseMux.Unlock()
-
-	if u.paused.Swap(false) {
-		close(u.resume)
-		u.resume = make(chan struct{})
-	}
-	return nil
 }
 
 func (u *UpdateEncoder) GetParameterSets() (sps []byte, pps []byte, err error) {
@@ -207,50 +178,4 @@ func calculateBitrateChange(currentBps, newBps int64) (absoluteChange int64, per
 	}
 
 	return absoluteChange, percentageChange
-}
-
-func (u *UpdateEncoder) getPacket() (*astiav.Packet, error) {
-	u.mux.RLock()
-	defer u.mux.RUnlock()
-
-	if u.encoder != nil {
-		ctx, cancel := context.WithTimeout(u.ctx, 100*time.Millisecond) // approx 2*fps
-		defer cancel()
-
-		p, err := u.encoder.GetPacket(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return p, nil
-	}
-
-	return nil, errors.New("encoder is nil")
-}
-
-func (u *UpdateEncoder) pushPacket(p *astiav.Packet) error {
-	if p == nil {
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(u.ctx, 100*time.Millisecond)
-	defer cancel()
-	return u.buffer.Push(ctx, p)
-}
-
-func (u *UpdateEncoder) loop() {
-	for {
-		select {
-		case <-u.ctx.Done():
-			return
-		default:
-			p, err := u.getPacket()
-			if err != nil {
-				fmt.Println("error getting packet from encoder; err:", err.Error())
-				continue
-			}
-
-			if err := u.pushPacket(p); err != nil {
-				fmt.Println(err.Error())
-			}
-		}
-	}
 }

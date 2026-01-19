@@ -3,6 +3,7 @@
 package transcode
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -42,13 +43,14 @@ var (
 	}
 )
 
-func WithFilterBuffer(size int, pool buffer.Pool[*astiav.Frame]) FilterOption {
+func WithFilterBuffer(ctx context.Context, size int, pool buffer.Pool[*astiav.Frame]) FilterOption {
 	return func(filter Filter) error {
 		s, ok := filter.(CanSetBuffer[*astiav.Frame])
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.NewChannelBufferWithGenerator(filter.Ctx(), pool, uint(size), 1))
+
+		s.SetBuffer(buffer.NewChannelBufferWithGenerator(ctx, pool, uint(size), 1))
 		return nil
 	}
 }

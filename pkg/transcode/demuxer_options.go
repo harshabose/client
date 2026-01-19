@@ -3,6 +3,8 @@
 package transcode
 
 import (
+	"context"
+
 	"github.com/asticode/go-astiav"
 
 	"github.com/harshabose/tools/pkg/buffer"
@@ -92,13 +94,13 @@ func WithAvFoundationInputFormatOption(demuxer Demuxer) error {
 	return nil
 }
 
-func WithDemuxerBuffer(size int, pool buffer.Pool[*astiav.Packet]) DemuxerOption {
+func WithDemuxerBuffer(ctx context.Context, size int, pool buffer.Pool[*astiav.Packet]) DemuxerOption {
 	return func(demuxer Demuxer) error {
 		s, ok := demuxer.(CanSetBuffer[*astiav.Packet])
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.NewChannelBufferWithGenerator(demuxer.Ctx(), pool, uint(size), 1))
+		s.SetBuffer(buffer.NewChannelBufferWithGenerator(ctx, pool, uint(size), 1))
 		return nil
 	}
 }

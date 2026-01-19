@@ -5,6 +5,7 @@ package transcode
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/asticode/go-astiav"
@@ -21,6 +22,8 @@ type GeneralDemuxer struct {
 
 	buffer buffer.BufferWithGenerator[*astiav.Packet]
 
+	once   sync.Once
+	wg     sync.WaitGroup
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -76,20 +79,25 @@ func CreateGeneralDemuxer(ctx context.Context, containerAddress string, options 
 	return demuxer, nil
 }
 
-func (d *GeneralDemuxer) Ctx() context.Context {
-	return d.ctx
-}
-
 func (d *GeneralDemuxer) Start() {
 	go d.loop()
 }
 
-func (d *GeneralDemuxer) Stop() {
-	d.cancel()
+func (d *GeneralDemuxer) Close() {
+	d.once.Do(func() {
+		if d.cancel != nil {
+			d.cancel()
+
+			d.wg.Wait()
+
+			d.close()
+		}
+	})
 }
 
 func (d *GeneralDemuxer) loop() {
-	defer d.close()
+	d.wg.Add(1)
+	defer d.wg.Done()
 
 loop1:
 	for {

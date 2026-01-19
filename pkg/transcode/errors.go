@@ -7,6 +7,7 @@ import "errors"
 var (
 	ErrorAllocateFormatContext = errors.New("error allocate format context")
 	ErrorOpenInputContainer    = errors.New("error opening container")
+	ErrorUnsupportedMedia      = errors.New("unsupported media type")
 	ErrorNoStreamFound         = errors.New("error no stream found")
 	ErrorGeneralAllocate       = errors.New("error allocating general object")
 	ErrorNoVideoStreamFound    = errors.New("no video stream found")

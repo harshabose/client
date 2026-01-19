@@ -230,8 +230,8 @@ func WithBandwidthControlInterceptor(initialBitrate, minimumBitrate, maximumBitr
 			return err
 		}
 
-		congestionController.OnNewPeerConnection(func(id string, estimator cc.BandwidthEstimator) {
-			client.estimatorChan <- estimator
+		congestionController.OnNewPeerConnection(func(id string, e cc.BandwidthEstimator) {
+			client.estimator <- estimator{e: e, interval: interval}
 		})
 
 		client.interceptorRegistry.Add(congestionController)

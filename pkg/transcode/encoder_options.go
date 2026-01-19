@@ -3,6 +3,7 @@
 package transcode
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -320,13 +321,13 @@ func withVideoSetEncoderContextParameter(filter CanDescribeMediaVideoFrame, eCtx
 	eCtx.SetFramerate(filter.FrameRate())
 }
 
-func WithEncoderBufferSize(size int, pool buffer.Pool[*astiav.Packet]) EncoderOption {
+func WithEncoderBufferSize(ctx context.Context, size int, pool buffer.Pool[*astiav.Packet]) EncoderOption {
 	return func(encoder Encoder) error {
 		s, ok := encoder.(CanSetBuffer[*astiav.Packet])
 		if !ok {
 			return ErrorInterfaceMismatch
 		}
-		s.SetBuffer(buffer.NewChannelBufferWithGenerator(encoder.Ctx(), pool, uint(size), 1))
+		s.SetBuffer(buffer.NewChannelBufferWithGenerator(ctx, pool, uint(size), 1))
 		return nil
 	}
 }

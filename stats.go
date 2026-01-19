@@ -68,7 +68,7 @@ func (g *StatsGetter) loop1(interval time.Duration) {
 	}
 }
 
-func (g *StatsGetter) Close() error {
+func (g *StatsGetter) Close() {
 	g.once.Do(func() {
 		if g.cancel != nil {
 			g.cancel()
@@ -76,8 +76,6 @@ func (g *StatsGetter) Close() error {
 
 		g.wg.Wait()
 	})
-
-	return nil
 }
 
 func (g *StatsGetter) Generate(pc *PeerConnection) Stat {
