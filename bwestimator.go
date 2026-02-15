@@ -175,9 +175,7 @@ func (bwc *BWEController) Unsubscribe(id string) {
 	delete(bwc.subs, id)
 }
 
-func (bwc *BWEController) Close() error {
-	var merr error = nil
-
+func (bwc *BWEController) Close() {
 	bwc.once.Do(func() {
 		if bwc.cancel != nil {
 			bwc.cancel()
@@ -188,9 +186,11 @@ func (bwc *BWEController) Close() error {
 		bwc.mux.Lock()
 		defer bwc.mux.Unlock()
 
-		if bwc.estimator == nil {
-			return
-		}
+		// if bwc.estimator != nil {
+		// 	if err := bwc.estimator.Close(); err != nil {
+		// 		return
+		// 	}
+		// }
 
 		// NOTE: CLOSED BY PC
 		// if err := bwc.estimator.Close(); err != nil {
@@ -198,8 +198,5 @@ func (bwc *BWEController) Close() error {
 		// }
 
 		bwc.subs = nil
-		return
 	})
-
-	return merr
 }

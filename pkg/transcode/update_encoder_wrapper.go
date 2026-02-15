@@ -18,8 +18,11 @@ var (
 )
 
 type UpdateEncoderConfig struct {
-	MaxBitrate, MinBitrate     int64
-	MinBitrateChangePercentage float64
+	EnableAdaptiveEncoding bool
+	MaxBitrate, MinBitrate int64
+
+	MinBitrateIncrementChangePercentage float64
+	MinBitrateDecrementChangePercentage float64
 }
 
 func (c UpdateEncoderConfig) validate() error {
@@ -104,6 +107,10 @@ func (u *UpdateEncoder) Close() {
 }
 
 func (u *UpdateEncoder) AdaptBitrate(bps int64) error {
+	if !u.config.EnableAdaptiveEncoding {
+		return nil
+	}
+
 	bps = u.cutoff(bps)
 
 	g, ok := u.encoder.(CanGetCurrentBitrate)
@@ -116,9 +123,20 @@ func (u *UpdateEncoder) AdaptBitrate(bps int64) error {
 		return err
 	}
 
+	increase := bps > current
+
 	_, change := calculateBitrateChange(current, bps)
-	if change < u.config.MinBitrateChangePercentage {
-		return nil
+
+	if increase {
+		if change < u.config.MinBitrateIncrementChangePercentage {
+			return nil
+		}
+	}
+
+	if !increase {
+		if change < u.config.MinBitrateDecrementChangePercentage {
+			return nil
+		}
 	}
 
 	if err := u.builder.AdaptBitrate(bps); err != nil {

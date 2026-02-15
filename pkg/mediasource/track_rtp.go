@@ -67,13 +67,17 @@ func (track *RTPTrack) rtpSenderLoop() {
 		default:
 			rtcpBuf := make([]byte, 1500)
 			if _, _, err := track.rtpSender.Read(rtcpBuf); err != nil {
-				fmt.Println("error while reading rtcp packets")
+				// fmt.Println("error while reading rtcp packets")
+				continue
 			}
 		}
 	}
 }
 
 func (track *RTPTrack) WriteRTP(packet *rtp.Packet) error {
+	if packet == nil {
+		return nil
+	}
 	if err := track.consumer.WriteRTP(packet); err != nil {
 		fmt.Printf("error while writing samples to track (id: ); err; %v. Continuing...", err)
 	}

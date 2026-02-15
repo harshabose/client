@@ -387,10 +387,7 @@ func (pc *PeerConnection) Close() error {
 		}
 
 		if pc.bwc != nil {
-			if err := pc.bwc.Close(); err != nil {
-				merr = multierr.Append(merr, err)
-			}
-			return
+			pc.bwc.Close()
 		}
 	})
 

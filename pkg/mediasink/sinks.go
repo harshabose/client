@@ -7,25 +7,26 @@ import (
 	"iter"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/pion/interceptor"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 
-	"github.com/harshabose/mediapipe/pkg/generators"
+	"github.com/harshabose/tools/pkg/cond"
 )
 
 type Sink struct {
-	generator       generators.CanGeneratePionRTPPacket
+	generator       *webrtc.TrackRemote
 	codecCapability *webrtc.RTPCodecParameters
 	rtpReceiver     *webrtc.RTPReceiver
 	mux             sync.RWMutex
+	cond            *cond.ContextCond
 	ctx             context.Context
 }
 
 func CreateSink(ctx context.Context, options ...SinkOption) (*Sink, error) {
 	sink := &Sink{ctx: ctx}
+	sink.cond = cond.NewContextCond(&(sink.mux))
 
 	for _, option := range options {
 		if err := option(sink); err != nil {
@@ -40,30 +41,30 @@ func CreateSink(ctx context.Context, options ...SinkOption) (*Sink, error) {
 	return sink, nil
 }
 
-func (s *Sink) setGenerator(generator generators.CanGeneratePionRTPPacket) {
+func (s *Sink) setGenerator(generator *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	s.generator = generator
-}
-
-func (s *Sink) setRTPReceiver(receiver *webrtc.RTPReceiver) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
 	s.rtpReceiver = receiver
+
+	s.cond.Broadcast()
 }
 
-func (s *Sink) readRTPReceiver(rtcpBuf []byte) error {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
+func (s *Sink) readRTPReceiver(ctx context.Context, rtcpBuf []byte) error {
+	s.mux.Lock()
 
-	if s.rtpReceiver == nil {
-		time.Sleep(10 * time.Millisecond)
-		return nil
+	for s.rtpReceiver == nil {
+		if err := s.cond.Wait(ctx); err != nil {
+			s.mux.Unlock()
+			return err
+		}
 	}
+	reader := s.rtpReceiver
 
-	if _, _, err := s.rtpReceiver.Read(rtcpBuf); err != nil {
+	s.mux.Unlock()
+
+	if _, _, err := reader.Read(rtcpBuf); err != nil {
 		fmt.Printf("error while reading rtcp packets (err=%v)\n", err)
 		return err
 	}
@@ -78,22 +79,27 @@ func (s *Sink) rtpReceiverLoop() {
 			return
 		default:
 			rtcpBuf := make([]byte, 1500)
-			if err := s.readRTPReceiver(rtcpBuf); err != nil {
+			if err := s.readRTPReceiver(s.ctx, rtcpBuf); err != nil {
 				return
 			}
 		}
 	}
 }
 
-func (s *Sink) ReadRTP() (*rtp.Packet, interceptor.Attributes, error) {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
+func (s *Sink) ReadRTP(ctx context.Context) (*rtp.Packet, interceptor.Attributes, error) {
+	s.cond.L.Lock()
 
-	if s.generator == nil {
-		return nil, interceptor.Attributes{}, nil
+	for s.generator == nil {
+		if err := s.cond.Wait(ctx); err != nil {
+			s.cond.L.Unlock()
+			return nil, nil, err
+		}
 	}
+	reader := s.generator
 
-	return s.generator.ReadRTP()
+	s.cond.L.Unlock()
+
+	return reader.ReadRTP()
 }
 
 type Sinks struct {
@@ -117,7 +123,6 @@ func (s *Sinks) onTrack(pc *webrtc.PeerConnection) {
 		sink, err := s.GetSink(remote.ID())
 		if err != nil {
 			fmt.Printf("failed to trigger on track callback with err: %v\n", err)
-			// TODO: MAYBE SET A DEFAULT SINK?
 			return
 		}
 
@@ -126,8 +131,7 @@ func (s *Sinks) onTrack(pc *webrtc.PeerConnection) {
 			return
 		}
 
-		sink.setRTPReceiver(receiver)
-		sink.setGenerator(remote)
+		sink.setGenerator(remote, receiver)
 
 		go sink.rtpReceiverLoop()
 	})

@@ -63,6 +63,7 @@ func (track *Track) rtpSenderLoop() {
 			rtcpBuf := make([]byte, 1500)
 			if _, _, err := track.rtpSender.Read(rtcpBuf); err != nil {
 				// fmt.Println("error while reading rtcp packets")
+				continue
 			}
 		}
 	}

@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"iter"
 	"sync"
 	"time"
@@ -48,7 +49,7 @@ func NewClient(
 	if settings == nil {
 		settings = &webrtc.SettingEngine{}
 	}
-
+	// settings.SetFireOnTrackBeforeFirstRTP(true)
 	settings.DetachDataChannels()
 
 	c := &Client{
@@ -101,6 +102,7 @@ func (c *Client) CreatePeerConnectionWithBWEstimator(label string, config webrtc
 		select {
 		case e := <-c.estimator:
 			pc.bwc.set(e.e, e.interval)
+			pc.bwc.Start()
 		}
 	}
 
@@ -176,10 +178,10 @@ func (c *Client) ClosePeerConnectionIfExists(label string) error {
 	return nil
 }
 
-func (c *Client) Close() error {
+func (c *Client) Close() {
 	for _, pc := range c.PeerConnections() {
 		if err := pc.Close(); err != nil {
-			return err
+			fmt.Printf("Client: error while closing err=%v\n", err)
 		}
 	}
 
@@ -187,5 +189,4 @@ func (c *Client) Close() error {
 	defer c.mux.Unlock()
 
 	c.pcs = make(map[string]*PeerConnection)
-	return nil
 }
