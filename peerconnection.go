@@ -236,11 +236,11 @@ func CreatePeerConnection(ctx context.Context, label string, api *webrtc.API, co
 	return pc.onConnectionStateChangeEvent().onICEConnectionStateChange().onICEGatheringStateChange().onICECandidate(), err
 }
 
-func (pc *PeerConnection) WaitTillOpen(ctx context.Context) error {
+func (pc *PeerConnection) WaitTill(ctx context.Context, state webrtc.PeerConnectionState) error {
 	pc.cond.L.Lock()
 	defer pc.cond.L.Unlock()
 
-	for pc.state != webrtc.PeerConnectionStateConnected {
+	for pc.state != state {
 		if err := pc.cond.Wait(ctx); err != nil {
 			return err
 		}
@@ -304,6 +304,11 @@ func (pc *PeerConnection) onConnectionStateChangeEvent() *PeerConnection {
 func (pc *PeerConnection) onICEConnectionStateChange() *PeerConnection {
 	pc.peerConnection.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
 		fmt.Printf("ICE Connection State changed: %s\n", state.String())
+
+		if state == webrtc.ICEConnectionStateDisconnected || state == webrtc.ICEConnectionStateFailed {
+			fmt.Printf("closing peer connection (label=%s) due to state (%s)", pc.label, state.String())
+			_ = pc.Close()
+		}
 	})
 	return pc
 }
@@ -325,6 +330,10 @@ func (pc *PeerConnection) onICECandidate() *PeerConnection {
 		fmt.Printf("Found candidate: %s (type=%s)\n", candidate.String(), candidate.Typ)
 	})
 	return pc
+}
+
+func (pc *PeerConnection) GetState() webrtc.PeerConnectionState {
+	return pc.peerConnection.ConnectionState()
 }
 
 func (pc *PeerConnection) CreateDataChannel(label string, options ...datachannel.Option) (*datachannel.DataChannel, error) {
