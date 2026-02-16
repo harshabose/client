@@ -12,6 +12,7 @@ import (
 	"github.com/harshabose/simple_webrtc_comm/client/pkg/datachannel"
 	"github.com/harshabose/simple_webrtc_comm/client/pkg/mediasink"
 	"github.com/harshabose/simple_webrtc_comm/client/pkg/mediasource"
+	"github.com/harshabose/tools/pkg/cond"
 	"github.com/harshabose/tools/pkg/multierr"
 )
 
@@ -202,6 +203,8 @@ type PeerConnection struct {
 	bwc          *BWEController
 	stat         *stat
 
+	cond   *cond.ContextCond
+	state  webrtc.PeerConnectionState
 	once   sync.Once
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -224,11 +227,26 @@ func CreatePeerConnection(ctx context.Context, label string, api *webrtc.API, co
 		bwc:            createBWController(ctx2),
 		tracks:         mediasource.CreateTracks(ctx2),
 		sinks:          mediasink.CreateSinks(ctx2, peerConnection),
+		state:          webrtc.PeerConnectionStateUnknown,
+		cond:           cond.NewContextCond(&sync.Mutex{}),
 	}
 
 	pc.stat = newStat(pc)
 
 	return pc.onConnectionStateChangeEvent().onICEConnectionStateChange().onICEGatheringStateChange().onICECandidate(), err
+}
+
+func (pc *PeerConnection) WaitTillOpen(ctx context.Context) error {
+	pc.cond.L.Lock()
+	defer pc.cond.L.Unlock()
+
+	for pc.state != webrtc.PeerConnectionStateConnected {
+		if err := pc.cond.Wait(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (pc *PeerConnection) Done() <-chan struct{} {
@@ -274,13 +292,11 @@ func (pc *PeerConnection) MediaSinks() iter.Seq2[string, *mediasink.Sink] {
 func (pc *PeerConnection) onConnectionStateChangeEvent() *PeerConnection {
 	pc.peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		fmt.Printf("peer connection state with label changed to %s\n", state.String())
+		pc.cond.L.Lock()
+		defer pc.cond.L.Unlock()
 
-		if state == webrtc.PeerConnectionStateDisconnected || state == webrtc.PeerConnectionStateFailed {
-			fmt.Printf("closing peer connection (id=%s)\n", pc.label)
-			if err := pc.Close(); err != nil {
-				fmt.Printf("error while closing peer connection (id=%s); err=%v\n", pc.label, err)
-			}
-		}
+		pc.state = state
+		pc.cond.Broadcast()
 	})
 	return pc
 }
