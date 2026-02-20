@@ -139,7 +139,7 @@ var LowLatencyBitrateControlled = &X264Options{
 		// MaxQP:            "80",
 		// MinQP:            "24",
 		// MaxQPStep:        "80",
-		IntraRefresh:     "0",
+		IntraRefresh:     "1", // todo; changing this to check if it helps with bitrate spikes
 		ConstrainedIntra: "0",
 		SceneCut:         "0",
 		BFrames:          "0",
