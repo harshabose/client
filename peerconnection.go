@@ -236,11 +236,13 @@ func CreatePeerConnection(ctx context.Context, label string, api *webrtc.API, co
 	return pc.onConnectionStateChangeEvent().onICEConnectionStateChange().onICEGatheringStateChange().onICECandidate(), err
 }
 
-func (pc *PeerConnection) WaitTill(ctx context.Context, state webrtc.PeerConnectionState) error {
+type StateCond = func(state webrtc.PeerConnectionState) bool
+
+func (pc *PeerConnection) WaitTill(ctx context.Context, cond StateCond) error {
 	pc.cond.L.Lock()
 	defer pc.cond.L.Unlock()
 
-	for pc.state != state {
+	for cond(pc.state) {
 		if err := pc.cond.Wait(ctx); err != nil {
 			return err
 		}
