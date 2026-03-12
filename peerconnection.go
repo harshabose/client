@@ -205,6 +205,7 @@ type PeerConnection struct {
 
 	cond   *cond.ContextCond
 	state  webrtc.PeerConnectionState
+	istate webrtc.ICEConnectionState
 	once   sync.Once
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -228,6 +229,7 @@ func CreatePeerConnection(ctx context.Context, label string, api *webrtc.API, co
 		tracks:         mediasource.CreateTracks(ctx2),
 		sinks:          mediasink.CreateSinks(ctx2, peerConnection),
 		state:          webrtc.PeerConnectionStateUnknown,
+		istate:         webrtc.ICEConnectionStateUnknown,
 		cond:           cond.NewContextCond(&sync.Mutex{}),
 	}
 
@@ -236,13 +238,13 @@ func CreatePeerConnection(ctx context.Context, label string, api *webrtc.API, co
 	return pc.onConnectionStateChangeEvent().onICEConnectionStateChange().onICEGatheringStateChange().onICECandidate(), err
 }
 
-type StateCond = func(state webrtc.PeerConnectionState) bool
+type StateCond = func(state webrtc.PeerConnectionState, istate webrtc.ICEConnectionState) bool
 
 func (pc *PeerConnection) WaitTill(ctx context.Context, cond StateCond) error {
 	pc.cond.L.Lock()
 	defer pc.cond.L.Unlock()
 
-	for cond(pc.state) {
+	for cond(pc.state, pc.istate) {
 		if err := pc.cond.Wait(ctx); err != nil {
 			return err
 		}
@@ -306,12 +308,18 @@ func (pc *PeerConnection) onConnectionStateChangeEvent() *PeerConnection {
 func (pc *PeerConnection) onICEConnectionStateChange() *PeerConnection {
 	pc.peerConnection.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
 		fmt.Printf("ICE Connection State changed: %s\n", state.String())
+		pc.cond.L.Lock()
+		defer pc.cond.L.Unlock()
 
-		if state == webrtc.ICEConnectionStateDisconnected || state == webrtc.ICEConnectionStateFailed {
-			fmt.Printf("closing peer connection (label=%s) due to state (%s)", pc.label, state.String())
-			_ = pc.Close()
-		}
+		pc.istate = state
+		pc.cond.Broadcast()
+
+		// if state == webrtc.ICEConnectionStateDisconnected || state == webrtc.ICEConnectionStateFailed {
+		// 	fmt.Printf("closing peer connection (label=%s) due to state (%s)", pc.label, state.String())
+		// 	_ = pc.Close()
+		// }
 	})
+
 	return pc
 }
 
