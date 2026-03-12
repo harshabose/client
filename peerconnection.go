@@ -302,6 +302,7 @@ func (pc *PeerConnection) onConnectionStateChangeEvent() *PeerConnection {
 		pc.state = state
 		pc.cond.Broadcast()
 	})
+
 	return pc
 }
 
@@ -313,11 +314,6 @@ func (pc *PeerConnection) onICEConnectionStateChange() *PeerConnection {
 
 		pc.istate = state
 		pc.cond.Broadcast()
-
-		// if state == webrtc.ICEConnectionStateDisconnected || state == webrtc.ICEConnectionStateFailed {
-		// 	fmt.Printf("closing peer connection (label=%s) due to state (%s)", pc.label, state.String())
-		// 	_ = pc.Close()
-		// }
 	})
 
 	return pc
