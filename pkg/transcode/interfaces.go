@@ -12,6 +12,11 @@ type CanAddToFilterContent interface {
 	AddToFilterContent(string)
 }
 
+type canEnableDrawTextFilter interface {
+       setEnableDrawTextFilter(bool, string)
+       UpdateDrawTextFilter(string) error
+}
+
 type CanGetParameterSets interface {
 	GetParameterSets() (sps, pps []byte, err error)
 }

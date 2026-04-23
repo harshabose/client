@@ -122,3 +122,11 @@ func (t *Transcoder) GetCurrentFPS() (uint8, error) {
 func (t *Transcoder) OnUpdateBitrate() UpdateBitrateCallBack {
 	return t.AdaptBitrate
 }
+
+func (t *Transcoder) UpdateDrawTextFilter(drawText string) error {
+       a, ok := t.filter.(canEnableDrawTextFilter)
+       if !ok {
+               return ErrorInterfaceMismatch
+       }
+       return a.UpdateDrawTextFilter(drawText)
+}

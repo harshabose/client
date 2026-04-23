@@ -20,6 +20,9 @@ type GeneralFilter struct {
 	graph            *astiav.FilterGraph
 	input            *astiav.FilterInOut
 	output           *astiav.FilterInOut
+	enableDrawtext   bool
+	drawTextString   string
+	videoLabelChan   chan string
 	srcContext       *astiav.BuffersrcFilterContext
 	sinkContext      *astiav.BuffersinkFilterContext
 	srcContextParams *astiav.BuffersrcFilterContextParameters // NOTE: THIS BECOMES NIL AFTER INITIALISATION
@@ -111,6 +114,11 @@ func CreateGeneralFilter(ctx context.Context, canProduceMediaFrame CanProduceMed
 	if filter.content == "" {
 		fmt.Println(WarnNoFilterContent)
 	}
+	if filter.enableDrawtext {
+		filter.content += fmt.Sprintf("drawtext@videolabel=text=%s:x=10:y=10:fontsize=24:fontcolor=white", filter.drawTextString)
+		filter.videoLabelChan = make(chan string, 1)
+		fmt.Printf("Filter Graph Parse Content:\n%s\n", filter.content)
+	}
 
 	if err = filter.graph.Parse(filter.content, filter.input, filter.output); err != nil {
 		return nil, ErrorGraphParse
@@ -137,6 +145,10 @@ func (f *GeneralFilter) Close() {
 			f.cancel()
 		}
 
+		if f.enableDrawtext {
+			close(f.videoLabelChan)
+		}
+
 		f.wg.Wait()
 
 		f.close()
@@ -156,6 +168,17 @@ loop1:
 			srcFrame, err := f.getFrame()
 			if err != nil {
 				continue
+			}
+			// To fetch updated video label value from channel in non-blocking way
+			select {
+			case newVal, _ := <-f.videoLabelChan:
+				fmt.Println("Updating new drawtext videoLabel mid-stream!")
+				newArgs := fmt.Sprintf("text=%s", newVal)
+
+				_, err := f.graph.SendCommand("videolabel", "reinit", newArgs, -1)
+				if err != nil {
+					fmt.Printf("Failed to update drawtext: %v\n", err)
+				}
 			}
 			if err := f.srcContext.AddFrame(srcFrame, astiav.NewBuffersrcFlags(astiav.BuffersrcFlagKeepRef)); err != nil {
 				f.buffer.Put(srcFrame)
@@ -219,6 +242,20 @@ func (f *GeneralFilter) SetBuffer(buffer buffer.BufferWithGenerator[*astiav.Fram
 
 func (f *GeneralFilter) AddToFilterContent(content string) {
 	f.content += content
+}
+
+func (f *GeneralFilter) setEnableDrawTextFilter(enableText bool, drawText string) {
+       f.enableDrawtext = enableText
+       f.drawTextString = drawText
+}
+
+func (f *GeneralFilter) UpdateDrawTextFilter(drawText string) error {
+       if f.enableDrawtext {
+               f.drawTextString = drawText
+               f.videoLabelChan <- f.drawTextString
+               return nil
+       }
+       return ErrorDrawTextDisabled
 }
 
 func (f *GeneralFilter) SetFrameRate(describe CanDescribeFrameRate) {

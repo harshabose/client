@@ -111,6 +111,17 @@ func WithVideoFPSFilterContent(fps uint8) FilterOption {
 	}
 }
 
+func WithVideoEnableDrawTextFilter(enableDrawText bool, defaultDrawText string) FilterOption {
+       return func(filter Filter) error {
+               a, ok := filter.(canEnableDrawTextFilter)
+               if !ok {
+                       return ErrorInterfaceMismatch
+               }
+               a.setEnableDrawTextFilter(enableDrawText, defaultDrawText)
+               return nil
+       }
+}
+
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 func withAudioSetFilterContextParameters(decoder CanDescribeMediaAudioFrame) func(Filter) error {

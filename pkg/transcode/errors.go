@@ -12,6 +12,7 @@ var (
 	ErrorGeneralAllocate       = errors.New("error allocating general object")
 	ErrorNoVideoStreamFound    = errors.New("no video stream found")
 	ErrorInterfaceMismatch     = errors.New("interface mismatch")
+	ErrorDrawTextDisabled      = errors.New("draw text disabled")
 
 	ErrorNoCodecFound         = errors.New("error no codec found")
 	ErrorAllocateCodecContext = errors.New("error allocating codec context")
